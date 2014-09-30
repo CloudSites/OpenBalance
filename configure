@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+from mako.template import Template
+import subprocess
+
+os_configs = {'Linux': {'compiler': 'gcc'},
+              'FreeBSD': {'compiler': 'gcc47'}}
+
+uname = subprocess.check_output(['uname']).rstrip()
+print "Building Makefile"
+
+with open("Makefile", "w") as makefile:
+    makefile_template = Template(filename="Makefile.template")
+    makefile.write(makefile_template.render(config=os_configs[uname]))
+
+print "done."

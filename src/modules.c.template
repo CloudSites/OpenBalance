@@ -1,0 +1,9 @@
+#include "modules.h"
+
+ob_module_structure available_modules[] =
+{
+% for module in modules:
+	${module},
+% endfor
+	{NULL, NULL, NULL, NULL}
+};

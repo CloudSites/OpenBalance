@@ -1,0 +1,45 @@
+# Config Options
+CC=${config['compiler']} -g -Wall -Werror -Isrc/ \
+<%text>
+CC_OBJ=${CC} -c -o $@
+OB_LIBS=-ljansson -luv
+
+# Main Targets
+all: bin obj bin/openbalance
+
+clean:
+	@rm -rfv bin obj src/modules.c src/modules.h Makefile
+
+
+# Executable Targets
+bin/openbalance: obj/logging.o obj/main.o obj/config.o obj/module.o \
+                 obj/modules.o obj/event.o
+	${CC} -o $@ $^ ${OB_LIBS}
+
+
+# Object Targets
+obj/main.o: src/main.c src/main.h obj/config.o
+	${CC_OBJ} src/main.c
+
+obj/logging.o: src/logging.c src/logging.h
+	${CC_OBJ} src/logging.c
+
+obj/config.o: src/config.c src/config.h obj/modules.o
+	${CC_OBJ} src/config.c
+
+obj/module.o: src/module.c src/module.h
+	${CC_OBJ} src/module.c
+
+obj/event.o: src/event.c src/event.h
+	${CC_OBJ} src/event.c
+
+obj/modules.o: src/modules/*/*.c src/modules/*/*.h src/builder.py src/modules.h.template
+	@python src/builder.py ${OB_LIBS}
+
+# Utility Targets
+bin:
+	@mkdir bin
+
+obj:
+	@mkdir -p obj/modules
+</%text>

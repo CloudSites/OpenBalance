@@ -1,0 +1,11 @@
+#ifndef __MODULES_H__
+#define __MODULES_H__
+#include "module.h"
+
+% for module in modules:
+#include "modules/${module}/${module}.h"
+% endfor
+
+extern ob_module_structure available_modules[];
+
+#endif
