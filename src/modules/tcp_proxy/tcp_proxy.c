@@ -1,18 +1,18 @@
-#include "redis_proxy.h"
+#include "tcp_proxy.h"
 
 //TODO: Add this to config
 #define BACKLOG_SIZE 128
 
 
-handler_response redis_proxy_configure(json_t* config, void **conf_struct)
+handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
 {
-	redis_proxy_config *module_config;
+	tcp_proxy_config *module_config;
 	
 	// Error for non-object
 	if(!json_is_object(config))
 	{
 		log_message(LOG_ERROR,
-		            "redis_proxy configuration needs to be a JSON object\n");
+		            "tcp_proxy configuration needs to be a JSON object\n");
 		return MOD_ERROR;
 	}
 	
@@ -23,16 +23,19 @@ handler_response redis_proxy_configure(json_t* config, void **conf_struct)
 	                                               "127.0.0.1", 256);
 	if(!module_config->listen_host)
 		return MOD_ERROR;
-	module_config->listen_port = get_config_string(config, "listen_port",
-	                                               "6380", 32);
+	module_config->listen_port = get_config_int(config, "listen_port", 6380);
 	if(!module_config->listen_port)
 		return MOD_ERROR;
 	module_config->upstream_host = get_config_string(config, "upstream_host",
 	                                               "127.0.0.1", 256);
 	if(!module_config->upstream_host)
 		return MOD_ERROR;
-	module_config->upstream_port = get_config_string(config, "upstream_port",
-	                                               "6380", 32);
+	module_config->upstream_port = get_config_int(config, "upstream_port",
+	                                              6379);
+	if(!module_config->upstream_port)
+		return MOD_ERROR;
+	module_config->backlog_size = get_config_int(config, "backlog_size",
+	                                              128);
 	if(!module_config->upstream_port)
 		return MOD_ERROR;
 	
@@ -43,16 +46,16 @@ handler_response redis_proxy_configure(json_t* config, void **conf_struct)
 }
 
 
-handler_response redis_proxy_startup(void *config, ob_module *module)
+handler_response tcp_proxy_startup(void *config, ob_module *module)
 {
 	int ret;
-	redis_proxy_config *cfg = config;
+	tcp_proxy_config *cfg = config;
 	struct sockaddr_in bind_addr;
 	
-	log_message(LOG_INFO, "redis proxy starting!\n");
+	log_message(LOG_INFO, "tcp proxy starting!\n");
 	
 	// Resolve listen address
-	ret = uv_ip4_addr(cfg->listen_host, atoi(cfg->listen_port), &bind_addr);
+	ret = uv_ip4_addr(cfg->listen_host, cfg->listen_port, &bind_addr);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Listen socket resolution error: %s\n",
@@ -62,7 +65,7 @@ handler_response redis_proxy_startup(void *config, ob_module *module)
 	
 	// Resolve upstream address
 	cfg->upstream_addr = malloc(sizeof(*cfg->upstream_addr));
-	ret = uv_ip4_addr(cfg->upstream_host, atoi(cfg->upstream_port),
+	ret = uv_ip4_addr(cfg->upstream_host, cfg->upstream_port,
 	                  cfg->upstream_addr);
 	if(ret)
 	{
@@ -86,13 +89,13 @@ handler_response redis_proxy_startup(void *config, ob_module *module)
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Failed to bind on %s:%d: %s\n",
-		            cfg->listen_host, atoi(cfg->listen_port),uv_err_name(ret));
+		            cfg->listen_host, cfg->listen_port,uv_err_name(ret));
 		return MOD_ERROR;
 	}
 	
 	// Begin listening
 	ret = uv_listen((uv_stream_t*) cfg->listener, BACKLOG_SIZE,
-	                redis_proxy_new_client);
+	                tcp_proxy_new_client);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Listen error: %s\n", uv_err_name(ret));
@@ -103,22 +106,18 @@ handler_response redis_proxy_startup(void *config, ob_module *module)
 }
 
 
-handler_response redis_proxy_cleanup(void *config)
+handler_response tcp_proxy_cleanup(void *config)
 {
-	log_message(LOG_INFO, "Cleaning up redis_proxy\n");
-	redis_proxy_config *module_config = config;
+	log_message(LOG_INFO, "Cleaning up tcp_proxy\n");
+	tcp_proxy_config *module_config = config;
 	uv_loop_t *main_loop;
 	main_loop = module_config->listener->loop;
 	if(module_config)
 	{
 		if(module_config->listen_host)
 			free(module_config->listen_host);
-		if(module_config->listen_port)
-			free(module_config->listen_port);
 		if(module_config->upstream_host)
 			free(module_config->upstream_host);
-		if(module_config->upstream_port)
-			free(module_config->upstream_port);
 		uv_close((uv_handle_t*)module_config->listener, NULL);
 		while(uv_run(main_loop, UV_RUN_NOWAIT))
 		{
@@ -132,10 +131,10 @@ handler_response redis_proxy_cleanup(void *config)
 }
 
 
-void redis_proxy_new_client(uv_stream_t *listener, int status)
+void tcp_proxy_new_client(uv_stream_t *listener, int status)
 {
 	int ret;
-	redis_proxy_client *new;
+	tcp_proxy_client *new;
 	
 	log_message(LOG_INFO, "NEW_CLIENT: %d\n", status);
 	
@@ -162,7 +161,7 @@ void redis_proxy_new_client(uv_stream_t *listener, int status)
 	
 	ret = uv_tcp_connect(new->connection, new->upstream,
 	                     (struct sockaddr *)new->config->upstream_addr,
-	                     redis_proxy_new_upstream);
+	                     tcp_proxy_new_upstream);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Upstream tcp connection error\n");
@@ -171,10 +170,10 @@ void redis_proxy_new_client(uv_stream_t *listener, int status)
 }
 
 
-void redis_proxy_new_upstream(uv_connect_t* conn, int status)
+void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 {
 	int ret;
-	redis_proxy_client *client = conn->data;
+	tcp_proxy_client *client = conn->data;
 	
 	log_message(LOG_INFO, "New upstream\n");
 	if(status)
@@ -200,7 +199,7 @@ void redis_proxy_new_upstream(uv_connect_t* conn, int status)
 	}
 	
 	ret = uv_read_start((uv_stream_t*) client->downstream,
-	                    redis_proxy_read_alloc, redis_proxy_client_read);
+	                    tcp_proxy_read_alloc, tcp_proxy_client_read);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Failed to start client read handling\n");
@@ -208,7 +207,7 @@ void redis_proxy_new_upstream(uv_connect_t* conn, int status)
 	}
 	
 	ret = uv_read_start((uv_stream_t*) client->upstream,
-	                    redis_proxy_read_alloc, redis_proxy_upstream_read);
+	                    tcp_proxy_read_alloc, tcp_proxy_upstream_read);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Failed to start upstream read handling\n");
@@ -217,14 +216,14 @@ void redis_proxy_new_upstream(uv_connect_t* conn, int status)
 }
 
 
-void redis_proxy_free_handle(uv_handle_t *handle)
+void tcp_proxy_free_handle(uv_handle_t *handle)
 {
 	log_message(LOG_DEBUG, "freeing handle\n");
 	free(handle);
 }
 
 
-void redis_proxy_read_alloc(uv_handle_t *handle, size_t suggested_size,
+void tcp_proxy_read_alloc(uv_handle_t *handle, size_t suggested_size,
                             uv_buf_t *buffer)
 {
 	log_message(LOG_DEBUG, "Allocation\n");
@@ -233,12 +232,12 @@ void redis_proxy_read_alloc(uv_handle_t *handle, size_t suggested_size,
 }
 
 
-void redis_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
+void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
                              const uv_buf_t *buffer)
 {
 	uv_buf_t *response;
 	uv_write_t *req;
-	redis_proxy_client *client = inbound->data;
+	tcp_proxy_client *client = inbound->data;
 	
 	log_message(LOG_DEBUG, "Client read event\n");
 	
@@ -246,9 +245,9 @@ void redis_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 	{
 		if(buffer->base)
 			free(buffer->base);
-		uv_close((uv_handle_t*)inbound, redis_proxy_free_handle);
+		uv_close((uv_handle_t*)inbound, tcp_proxy_free_handle);
 		log_message(LOG_INFO, "Client disconnected\n");
-		uv_close((uv_handle_t*)client->upstream, redis_proxy_free_handle);
+		uv_close((uv_handle_t*)client->upstream, tcp_proxy_free_handle);
 		free(client->connection);
 		free(client);
 		//uv_stop(inbound->loop);
@@ -268,12 +267,13 @@ void redis_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		req = calloc(1, sizeof(*req));
 		req->data = response;
 		// Send to upstream connection
-		uv_write(req, (uv_stream_t *)client->upstream, response, 1, redis_proxy_free_request);
+		uv_write(req, (uv_stream_t *)client->upstream, response, 1,
+		         tcp_proxy_free_request);
 	}
 }
 
 
-void redis_proxy_free_request(uv_write_t *req, int status)
+void tcp_proxy_free_request(uv_write_t *req, int status)
 {
 	uv_buf_t *ptr;
 	ptr = req->data;
@@ -283,12 +283,12 @@ void redis_proxy_free_request(uv_write_t *req, int status)
 }
 
 
-void redis_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
+void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
                                const uv_buf_t *buffer)
 {
 	uv_buf_t *response;
 	uv_write_t *req;
-	redis_proxy_client *client = inbound->data;
+	tcp_proxy_client *client = inbound->data;
 	
 	response = malloc(sizeof(*response));
 	response->base = buffer->base;
@@ -297,5 +297,6 @@ void redis_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
 	req = calloc(1, sizeof(*req));
 	req->data = response;
 	// Send to upstream connection
-	uv_write(req, (uv_stream_t *)client->downstream, response, 1, redis_proxy_free_request);
+	uv_write(req, (uv_stream_t *)client->downstream, response, 1,
+	         tcp_proxy_free_request);
 }

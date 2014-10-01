@@ -232,11 +232,12 @@ char* get_config_string(json_t* json, char *key, char* def_value,
 		len = strlen(def_value);
 		ret = calloc(1, len + 1);
 		strncpy(ret, def_value, len);
+		ret[len] = '\0';
 	}
 	else if(!json_is_string(value))
 	{
 		log_message(LOG_ERROR,
-		            "Value 'listen_host' requires a string\n");
+		            "Value '%s' requires a string\n", key);
 		return NULL;
 	}
 	else
@@ -248,4 +249,29 @@ char* get_config_string(json_t* json, char *key, char* def_value,
 		strncpy(ret, string, len);
 	}
 	return ret;
+}
+
+int get_config_int(json_t* json, char *key, int def_value)
+{
+	json_t *value;
+	
+	value = json_object_get(json, key);
+	if(!value)
+	{
+		log_message(LOG_INFO,
+		            "No '%s' specified, setting to '%d'\n", key,
+		            def_value);
+		return def_value;
+	}
+	else if(!json_is_integer(value))
+	{
+		log_message(LOG_ERROR,
+		            "Value '%s' requires an integer\n", key);
+		return 0;
+	}
+	else
+	{
+		return json_integer_value(value);
+	}
+	
 }

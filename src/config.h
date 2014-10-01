@@ -16,5 +16,6 @@ int parse_cli_arguments(int argc, char *argv[]);
 void config_cleanup(void);
 char* get_config_string(json_t* json, char *key, char* def_value,
                         size_t maxlen);
+int get_config_int(json_t* json, char *key, int def_value);
 
 #endif
