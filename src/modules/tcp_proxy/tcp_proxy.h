@@ -19,7 +19,7 @@ typedef struct memory_allocation memory_allocation;
 struct memory_allocation
 {
 	void *allocation;
-	struct memory_pool_entry *previous;
+	void *previous;
 };
 
 
@@ -59,4 +59,5 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
                                const uv_buf_t *buffer);
 void tcp_proxy_free_request(uv_write_t *req, int status);
+void tcp_proxy_return_allocation(void *allocation);
 #endif

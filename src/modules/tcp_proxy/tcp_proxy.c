@@ -1,7 +1,6 @@
 #include "tcp_proxy.h"
 
-//TODO: Add this to config
-#define BACKLOG_SIZE 128
+memory_allocation *free_memory_list;
 
 
 handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
@@ -53,6 +52,7 @@ handler_response tcp_proxy_startup(void *config, ob_module *module)
 	struct sockaddr_in bind_addr;
 	
 	log_message(LOG_INFO, "tcp proxy starting!\n");
+	free_memory_list = NULL;
 	
 	// Resolve listen address
 	ret = uv_ip4_addr(cfg->listen_host, cfg->listen_port, &bind_addr);
@@ -94,7 +94,7 @@ handler_response tcp_proxy_startup(void *config, ob_module *module)
 	}
 	
 	// Begin listening
-	ret = uv_listen((uv_stream_t*) cfg->listener, BACKLOG_SIZE,
+	ret = uv_listen((uv_stream_t*) cfg->listener, cfg->backlog_size,
 	                tcp_proxy_new_client);
 	if(ret)
 	{
@@ -108,16 +108,24 @@ handler_response tcp_proxy_startup(void *config, ob_module *module)
 
 handler_response tcp_proxy_cleanup(void *config)
 {
-	log_message(LOG_INFO, "Cleaning up tcp_proxy\n");
 	tcp_proxy_config *module_config = config;
 	uv_loop_t *main_loop;
+	memory_allocation *ptr;
+	
+	log_message(LOG_INFO, "Cleaning up tcp_proxy\n");
+	
 	main_loop = module_config->listener->loop;
 	if(module_config)
 	{
-		if(module_config->listen_host)
-			free(module_config->listen_host);
-		if(module_config->upstream_host)
-			free(module_config->upstream_host);
+		while(free_memory_list)
+		{
+			ptr = free_memory_list->previous;
+			free(free_memory_list->allocation);
+			free(free_memory_list);
+			free_memory_list = ptr;
+		}
+		free(module_config->listen_host);
+		free(module_config->upstream_host);
 		uv_close((uv_handle_t*)module_config->listener, NULL);
 		while(uv_run(main_loop, UV_RUN_NOWAIT))
 		{
@@ -218,7 +226,6 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 
 void tcp_proxy_free_handle(uv_handle_t *handle)
 {
-	log_message(LOG_DEBUG, "freeing handle\n");
 	free(handle);
 }
 
@@ -226,8 +233,18 @@ void tcp_proxy_free_handle(uv_handle_t *handle)
 void tcp_proxy_read_alloc(uv_handle_t *handle, size_t suggested_size,
                             uv_buf_t *buffer)
 {
-	log_message(LOG_DEBUG, "Allocation\n");
-	buffer->base = malloc(suggested_size);
+	memory_allocation *ptr;
+	if(free_memory_list)
+	{
+		buffer->base = free_memory_list->allocation;
+		ptr = free_memory_list->previous;
+		free(free_memory_list);
+		free_memory_list = ptr;
+	}
+	else
+	{
+		buffer->base = malloc(suggested_size);
+	}
 	buffer->len = suggested_size;
 }
 
@@ -244,7 +261,9 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 	if(readlen < 0)
 	{
 		if(buffer->base)
-			free(buffer->base);
+		{
+			tcp_proxy_return_allocation(buffer->base);
+		}
 		uv_close((uv_handle_t*)inbound, tcp_proxy_free_handle);
 		log_message(LOG_INFO, "Client disconnected\n");
 		uv_close((uv_handle_t*)client->upstream, tcp_proxy_free_handle);
@@ -277,7 +296,7 @@ void tcp_proxy_free_request(uv_write_t *req, int status)
 {
 	uv_buf_t *ptr;
 	ptr = req->data;
-	free(ptr->base);
+	tcp_proxy_return_allocation(ptr->base);
 	free(ptr);
 	free(req);
 }
@@ -299,4 +318,13 @@ void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
 	// Send to upstream connection
 	uv_write(req, (uv_stream_t *)client->downstream, response, 1,
 	         tcp_proxy_free_request);
+}
+
+void tcp_proxy_return_allocation(void *allocation)
+{
+	memory_allocation *new;
+	new = malloc(sizeof(*new));
+	new->previous = free_memory_list;
+	new->allocation = allocation;
+	free_memory_list = new;
 }
