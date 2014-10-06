@@ -10,8 +10,10 @@ modules = glob.glob('src/modules/*')
 build_modules_object = ["ld", '-o', 'obj/modules.o', '-r']
 mod_names = [x.split('/')[-1] for x in modules]
 compiler = 'gcc'
-if subprocess.check_output(['uname']) == 'FreeBSD\n':
-    compiler = 'gcc47'
+
+if subprocess.Popen(['uname'],
+                    stdout=subprocess.PIPE).communicate()[0] == 'FreeBSD\n':
+    compiler = 'gcc48'
 
 print "Rendering modules.h template"
 with open("src/modules.h", "w") as modules_header:

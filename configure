@@ -3,9 +3,10 @@ from mako.template import Template
 import subprocess
 
 os_configs = {'Linux': {'compiler': 'gcc'},
-              'FreeBSD': {'compiler': 'gcc47'}}
+              'FreeBSD': {'compiler': 'gcc48'}}
 
-uname = subprocess.check_output(['uname']).rstrip()
+uname = subprocess.Popen(['uname'],
+                         stdout=subprocess.PIPE).communicate()[0].rstrip()
 print "Building Makefile"
 
 with open("Makefile", "w") as makefile:

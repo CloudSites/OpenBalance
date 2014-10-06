@@ -303,7 +303,7 @@ void tcp_proxy_free_request(uv_write_t *req, int status)
 
 
 void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
-                               const uv_buf_t *buffer)
+                             const uv_buf_t *buffer)
 {
 	uv_buf_t *response;
 	uv_write_t *req;
