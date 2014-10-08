@@ -1,6 +1,7 @@
 #include "tcp_proxy.h"
 
 memory_allocation *free_memory_list;
+upstream_connection *free_connection_list;
 
 
 handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
@@ -53,6 +54,7 @@ handler_response tcp_proxy_startup(void *config, ob_module *module)
 	
 	log_message(LOG_INFO, "tcp proxy starting!\n");
 	free_memory_list = NULL;
+	free_connection_list = NULL;
 	
 	// Resolve listen address
 	ret = uv_ip4_addr(cfg->listen_host, cfg->listen_port, &bind_addr);
@@ -111,6 +113,7 @@ handler_response tcp_proxy_cleanup(void *config)
 	tcp_proxy_config *module_config = config;
 	uv_loop_t *main_loop;
 	memory_allocation *ptr;
+	upstream_connection *conn;
 	
 	log_message(LOG_INFO, "Cleaning up tcp_proxy\n");
 	
@@ -123,6 +126,14 @@ handler_response tcp_proxy_cleanup(void *config)
 			free(free_memory_list->allocation);
 			free(free_memory_list);
 			free_memory_list = ptr;
+		}
+		while(free_connection_list)
+		{
+			conn = free_connection_list->previous;
+			uv_close((uv_handle_t*)free_connection_list->connection,
+			         tcp_proxy_free_handle);
+			free(free_connection_list);
+			free_connection_list = conn;
 		}
 		free(module_config->listen_host);
 		free(module_config->upstream_host);
@@ -184,11 +195,6 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 	tcp_proxy_client *client = conn->data;
 	
 	log_message(LOG_INFO, "New upstream\n");
-	if(status)
-	{
-		log_message(LOG_ERROR, "Failed handling new upstream connection\n");
-		return;
-	}
 	
 	client->downstream = malloc(sizeof(*client->downstream));
 	ret = uv_tcp_init(client->server->loop, client->downstream);
@@ -198,6 +204,19 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 		return;
 	}
 	client->downstream->data = client;
+	
+	if(status)
+	{
+		log_message(LOG_ERROR, "Failed handling new upstream connection\n");
+		// Accept and shut down the connection
+		uv_accept(client->server, (uv_stream_t*)client->downstream);
+		uv_close((uv_handle_t*)client->downstream, tcp_proxy_free_handle);
+		// Cleanup the rest of the connection
+		free(client->connection);
+		uv_close((uv_handle_t*)client->upstream, tcp_proxy_free_handle);
+		free(client);
+		return;
+	}
 	
 	ret = uv_accept(client->server, (uv_stream_t*)client->downstream);
 	if(ret)
@@ -266,6 +285,7 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		}
 		uv_close((uv_handle_t*)inbound, tcp_proxy_free_handle);
 		log_message(LOG_INFO, "Client disconnected\n");
+		//tcp_proxy_return_upstream_connection(client->upstream);
 		uv_close((uv_handle_t*)client->upstream, tcp_proxy_free_handle);
 		free(client->connection);
 		free(client);
@@ -309,6 +329,16 @@ void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
 	uv_write_t *req;
 	tcp_proxy_client *client = inbound->data;
 	
+	if(readlen < 0)
+	{
+		uv_close((uv_handle_t*)inbound, tcp_proxy_free_handle);
+		uv_close((uv_handle_t*)client->downstream, tcp_proxy_free_handle);
+		free(buffer->base);
+		free(client->connection);
+		free(client);
+		return;
+	}
+	
 	response = malloc(sizeof(*response));
 	response->base = buffer->base;
 	response->len = readlen;
@@ -327,4 +357,13 @@ void tcp_proxy_return_allocation(void *allocation)
 	new->previous = free_memory_list;
 	new->allocation = allocation;
 	free_memory_list = new;
+}
+
+void tcp_proxy_return_upstream_connection(uv_tcp_t* connection)
+{
+	upstream_connection *new;
+	new = malloc(sizeof(*new));
+	new->previous = free_connection_list;
+	new->connection = connection;
+	free_connection_list = new;
 }

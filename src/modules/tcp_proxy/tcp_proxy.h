@@ -14,11 +14,18 @@
 typedef struct tcp_proxy_config tcp_proxy_config;
 typedef struct tcp_proxy_client tcp_proxy_client;
 typedef struct memory_allocation memory_allocation;
+typedef struct upstream_connection upstream_connection;
 
 
 struct memory_allocation
 {
 	void *allocation;
+	void *previous;
+};
+
+struct upstream_connection
+{
+	uv_tcp_t *connection;
 	void *previous;
 };
 
@@ -60,4 +67,5 @@ void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
                                const uv_buf_t *buffer);
 void tcp_proxy_free_request(uv_write_t *req, int status);
 void tcp_proxy_return_allocation(void *allocation);
+void tcp_proxy_return_upstream_connection(uv_tcp_t* connection);
 #endif
