@@ -273,5 +273,34 @@ int get_config_int(json_t* json, char *key, int def_value)
 	{
 		return json_integer_value(value);
 	}
+}
+
+
+int get_config_boolean(json_t* json, char *key, int def_value)
+{
+	json_t *value;
 	
+	value = json_object_get(json, key);
+	if(!value)
+	{
+		log_message(LOG_INFO,
+		            "No '%s' option specified, setting to %s\n", key,
+		            def_value ? "true" : "false");
+		return def_value;
+	}
+	else if(!json_is_boolean(value))
+	{
+		log_message(LOG_ERROR,
+		            "'%s' option provided is not a boolean, setting to %s\n", key,
+		            def_value ? "true" : "false");
+		return def_value;
+	}
+	else if(json_is_true(value))
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
 }

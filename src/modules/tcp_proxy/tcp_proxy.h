@@ -4,6 +4,7 @@
 #include "module.h"
 #include "config.h"
 
+// Module definition
 #define MODULE_NAME "tcp_proxy"
 #define tcp_proxy {MODULE_NAME, \
                      tcp_proxy_configure, \
@@ -25,7 +26,7 @@ struct memory_allocation
 
 struct upstream_connection
 {
-	uv_tcp_t *connection;
+	uv_tcp_t *stream;
 	void *previous;
 };
 
@@ -37,6 +38,7 @@ struct tcp_proxy_config
 	char *upstream_host;
 	int upstream_port;
 	int backlog_size;
+	int connection_pooling;
 	uv_tcp_t *listener;
 	struct sockaddr_in *upstream_addr;
 };
