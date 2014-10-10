@@ -13,7 +13,7 @@ clean:
 
 # Executable Targets
 bin/openbalance: obj/logging.o obj/main.o obj/config.o obj/module.o \
-                 obj/modules.o obj/event.o obj/memory.o
+                 obj/modules.o obj/event.o obj/memory.o obj/connectionpool.o
 	${CC} -o $@ $^ ${OB_LIBS}
 
 
@@ -32,6 +32,9 @@ obj/module.o: src/module.c src/module.h
 
 obj/memory.o: src/memory.c src/memory.h
 	${CC_OBJ} src/memory.c
+
+obj/connectionpool.o: src/connectionpool.c src/connectionpool.h
+	${CC_OBJ} src/connectionpool.c
 
 obj/event.o: src/event.c src/event.h
 	${CC_OBJ} src/event.c

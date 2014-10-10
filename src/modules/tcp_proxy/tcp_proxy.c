@@ -1,7 +1,5 @@
 #include "tcp_proxy.h"
 
-upstream_connection *free_connection_list;
-
 
 handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
 {
@@ -18,6 +16,7 @@ handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
 	// Allocate and start filling out configuration structure
 	module_config = malloc(sizeof(*module_config));
 	
+	module_config->pool = NULL;
 	module_config->listener = calloc(1, sizeof(*module_config->listener));
 	
 	module_config->listen_host = get_config_string(config, "listen_host",
@@ -62,8 +61,6 @@ handler_response tcp_proxy_startup(void *config, ob_module *module)
 	struct sockaddr_in bind_addr;
 	
 	log_message(LOG_INFO, "tcp proxy starting!\n");
-	// Initialize free connection list
-	free_connection_list = NULL;
 	
 	// Resolve listen address
 	ret = uv_ip4_addr(cfg->listen_host, cfg->listen_port, &bind_addr);
@@ -119,21 +116,15 @@ handler_response tcp_proxy_startup(void *config, ob_module *module)
 
 handler_response tcp_proxy_cleanup(void *config)
 {
-	upstream_connection *conn;
 	tcp_proxy_config *module_config = config;
 	uv_loop_t *main_loop = module_config->listener->loop;
 	
 	log_message(LOG_INFO, "Cleaning up tcp_proxy\n");
 	
 	// Free all upstream connections
-	while(free_connection_list)
-	{
-		conn = free_connection_list->previous;
-		uv_close((uv_handle_t*)free_connection_list->stream,
-		         tcp_proxy_free_handle);
-		free(free_connection_list);
-		free_connection_list = conn;
-	}
+	if(module_config->pool)
+		free_conn_pool(module_config->pool);
+	
 	// Free handles from configuration structure
 	free(module_config->listen_host);
 	free(module_config->upstream_host);
@@ -187,10 +178,8 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 	}
 	
 	// Recycle open connection if available
-	if(free_connection_list)
+	if((new->upstream = upstream_from_pool(new->config->pool)))
 	{
-		new->upstream = free_connection_list->stream;
-		free_connection_list = free_connection_list->previous;
 		new->upstream->data = new;
 		ret = uv_read_start((uv_stream_t*) new->downstream,
 		                    alloc_from_pool, tcp_proxy_client_read);
@@ -246,9 +235,9 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 		log_message(LOG_ERROR, "Failed handling new upstream connection\n");
 		// Accept and shut down the connection
 		uv_accept(client->server, (uv_stream_t*)client->downstream);
-		uv_close((uv_handle_t*)client->downstream, tcp_proxy_free_handle);
+		uv_close((uv_handle_t*)client->downstream, free_handle);
 		// Cleanup the rest of the connection
-		uv_close((uv_handle_t*)client->upstream, tcp_proxy_free_handle);
+		uv_close((uv_handle_t*)client->upstream, free_handle);
 		free(client);
 		return;
 	}
@@ -271,12 +260,6 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 }
 
 
-void tcp_proxy_free_handle(uv_handle_t *handle)
-{
-	free(handle);
-}
-
-
 void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
                              const uv_buf_t *buffer)
 {
@@ -292,9 +275,12 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		{
 			return_alloc_to_pool(buffer->base);
 		}
-		uv_close((uv_handle_t*)inbound, tcp_proxy_free_handle);
+		uv_close((uv_handle_t*)inbound, free_handle);
 		log_message(LOG_INFO, "Client disconnected\n");
-		tcp_proxy_return_upstream_connection(client->upstream);
+		if(client->config->connection_pooling)
+			return_upstream_connection(client->upstream, client->config->pool);
+		else
+			uv_close((uv_handle_t*)client->upstream, free_handle);
 		free(client);
 		//uv_stop(inbound->loop);
 		return;
@@ -340,8 +326,8 @@ void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
 	if(readlen < 0)
 	{
 		log_message(LOG_DEBUG, "Upstream disconnected\n");
-		uv_close((uv_handle_t*)inbound, tcp_proxy_free_handle);
-		uv_close((uv_handle_t*)client->downstream, tcp_proxy_free_handle);
+		uv_close((uv_handle_t*)inbound, free_handle);
+		uv_close((uv_handle_t*)client->downstream, free_handle);
 		free(buffer->base);
 		free(client);
 		return;
@@ -356,26 +342,4 @@ void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
 	// Send to upstream connection
 	uv_write(req, (uv_stream_t *)client->downstream, response, 1,
 	         tcp_proxy_free_request);
-}
-
-
-void tcp_proxy_return_upstream_connection(uv_tcp_t* stream)
-{
-	upstream_connection *new;
-	tcp_proxy_client *client = stream->data;
-	
-	if(client->config->connection_pooling)
-	{
-		// Allocate upstream linked list element
-		new = malloc(sizeof(*new));
-	
-		// Add to the front of the list
-		new->previous = free_connection_list;
-		new->stream = stream;
-		free_connection_list = new;
-	}
-	else
-	{
-		uv_close((uv_handle_t*)client->upstream, tcp_proxy_free_handle);
-	}
 }
