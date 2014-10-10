@@ -45,3 +45,15 @@ void free_pool(void)
 		free_memory_list = ptr;
 	}
 }
+
+
+
+void free_request(uv_write_t *req, int status)
+{
+	uv_buf_t *ptr = req->data;
+	
+	// Save the read buffer for reuse, free the rest
+	return_alloc_to_pool(ptr->base);
+	free(ptr);
+	free(req);
+}

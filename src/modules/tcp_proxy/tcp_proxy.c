@@ -300,19 +300,8 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		req->data = response;
 		// Send to upstream connection
 		uv_write(req, (uv_stream_t *)client->upstream, response, 1,
-		         tcp_proxy_free_request);
+		         free_request);
 	}
-}
-
-
-void tcp_proxy_free_request(uv_write_t *req, int status)
-{
-	uv_buf_t *ptr = req->data;
-	
-	// Save the read buffer for reuse, free the rest
-	return_alloc_to_pool(ptr->base);
-	free(ptr);
-	free(req);
 }
 
 
@@ -341,5 +330,5 @@ void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
 	req->data = response;
 	// Send to upstream connection
 	uv_write(req, (uv_stream_t *)client->downstream, response, 1,
-	         tcp_proxy_free_request);
+	         free_request);
 }

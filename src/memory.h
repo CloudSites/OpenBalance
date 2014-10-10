@@ -16,5 +16,6 @@ void alloc_from_pool(uv_handle_t *handle, size_t suggested_size,
                      uv_buf_t *buffer);
 void return_alloc_to_pool(void *allocation);
 void free_pool(void);
+void free_request(uv_write_t *req, int status);
 
 #endif
