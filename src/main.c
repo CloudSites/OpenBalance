@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
 	event_process();
 	
 	config_cleanup();
+	free_pool();
 	cleanup_event_system();
 	
 	return 0;

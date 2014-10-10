@@ -3,10 +3,10 @@
 
 #include "module.h"
 #include "config.h"
+#include "memory.h"
 
 // Module definition
-#define MODULE_NAME "tcp_proxy"
-#define tcp_proxy {MODULE_NAME, \
+#define tcp_proxy {"tcp_proxy", \
                      tcp_proxy_configure, \
                      tcp_proxy_startup, \
                      tcp_proxy_cleanup}
@@ -14,15 +14,8 @@
 
 typedef struct tcp_proxy_config tcp_proxy_config;
 typedef struct tcp_proxy_client tcp_proxy_client;
-typedef struct memory_allocation memory_allocation;
 typedef struct upstream_connection upstream_connection;
 
-
-struct memory_allocation
-{
-	void *allocation;
-	void *previous;
-};
 
 struct upstream_connection
 {
@@ -61,13 +54,10 @@ handler_response tcp_proxy_cleanup(void *config);
 void tcp_proxy_new_client(uv_stream_t *server, int status);
 void tcp_proxy_new_upstream(uv_connect_t* conn, int status);
 void tcp_proxy_free_handle(uv_handle_t *handle);
-void tcp_proxy_read_alloc(uv_handle_t *handle, size_t suggested_size,
-                            uv_buf_t *buffer);
 void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
                              const uv_buf_t *buffer);
 void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
                                const uv_buf_t *buffer);
 void tcp_proxy_free_request(uv_write_t *req, int status);
-void tcp_proxy_return_allocation(void *allocation);
 void tcp_proxy_return_upstream_connection(uv_tcp_t* connection);
 #endif

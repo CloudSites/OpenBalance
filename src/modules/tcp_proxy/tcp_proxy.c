@@ -1,6 +1,5 @@
 #include "tcp_proxy.h"
 
-memory_allocation *free_memory_list;
 upstream_connection *free_connection_list;
 
 
@@ -63,8 +62,7 @@ handler_response tcp_proxy_startup(void *config, ob_module *module)
 	struct sockaddr_in bind_addr;
 	
 	log_message(LOG_INFO, "tcp proxy starting!\n");
-	// Initialize free lists
-	free_memory_list = NULL;
+	// Initialize free connection list
 	free_connection_list = NULL;
 	
 	// Resolve listen address
@@ -121,21 +119,13 @@ handler_response tcp_proxy_startup(void *config, ob_module *module)
 
 handler_response tcp_proxy_cleanup(void *config)
 {
-	memory_allocation *ptr;
 	upstream_connection *conn;
 	tcp_proxy_config *module_config = config;
 	uv_loop_t *main_loop = module_config->listener->loop;
 	
 	log_message(LOG_INFO, "Cleaning up tcp_proxy\n");
 	
-	// Free all memory allocations and upstream connections
-	while(free_memory_list)
-	{
-		ptr = free_memory_list->previous;
-		free(free_memory_list->allocation);
-		free(free_memory_list);
-		free_memory_list = ptr;
-	}
+	// Free all upstream connections
 	while(free_connection_list)
 	{
 		conn = free_connection_list->previous;
@@ -203,7 +193,7 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 		free_connection_list = free_connection_list->previous;
 		new->upstream->data = new;
 		ret = uv_read_start((uv_stream_t*) new->downstream,
-		                    tcp_proxy_read_alloc, tcp_proxy_client_read);
+		                    alloc_from_pool, tcp_proxy_client_read);
 		if(ret)
 		{
 			log_message(LOG_ERROR, "Failed to start client read handling\n");
@@ -211,7 +201,7 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 		}
 	
 		ret = uv_read_start((uv_stream_t*) new->upstream,
-		                    tcp_proxy_read_alloc, tcp_proxy_upstream_read);
+		                    alloc_from_pool, tcp_proxy_upstream_read);
 		if(ret)
 		{
 			log_message(LOG_ERROR, "Failed to start upstream read handling\n");
@@ -264,7 +254,7 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 	}
 	
 	ret = uv_read_start((uv_stream_t*) client->downstream,
-	                    tcp_proxy_read_alloc, tcp_proxy_client_read);
+	                    alloc_from_pool, tcp_proxy_client_read);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Failed to start client read handling\n");
@@ -272,7 +262,7 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 	}
 	
 	ret = uv_read_start((uv_stream_t*) client->upstream,
-	                    tcp_proxy_read_alloc, tcp_proxy_upstream_read);
+	                    alloc_from_pool, tcp_proxy_upstream_read);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Failed to start upstream read handling\n");
@@ -284,25 +274,6 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 void tcp_proxy_free_handle(uv_handle_t *handle)
 {
 	free(handle);
-}
-
-
-void tcp_proxy_read_alloc(uv_handle_t *handle, size_t suggested_size,
-                            uv_buf_t *buffer)
-{
-	memory_allocation *ptr;
-	if(free_memory_list)
-	{
-		buffer->base = free_memory_list->allocation;
-		ptr = free_memory_list->previous;
-		free(free_memory_list);
-		free_memory_list = ptr;
-	}
-	else
-	{
-		buffer->base = malloc(suggested_size);
-	}
-	buffer->len = suggested_size;
 }
 
 
@@ -319,12 +290,11 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 	{
 		if(buffer->base)
 		{
-			tcp_proxy_return_allocation(buffer->base);
+			return_alloc_to_pool(buffer->base);
 		}
 		uv_close((uv_handle_t*)inbound, tcp_proxy_free_handle);
 		log_message(LOG_INFO, "Client disconnected\n");
 		tcp_proxy_return_upstream_connection(client->upstream);
-		//uv_close((uv_handle_t*)client->upstream, tcp_proxy_free_handle);
 		free(client);
 		//uv_stop(inbound->loop);
 		return;
@@ -354,7 +324,7 @@ void tcp_proxy_free_request(uv_write_t *req, int status)
 	uv_buf_t *ptr = req->data;
 	
 	// Save the read buffer for reuse, free the rest
-	tcp_proxy_return_allocation(ptr->base);
+	return_alloc_to_pool(ptr->base);
 	free(ptr);
 	free(req);
 }
@@ -388,18 +358,6 @@ void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
 	         tcp_proxy_free_request);
 }
 
-void tcp_proxy_return_allocation(void *allocation)
-{
-	memory_allocation *new;
-	
-	// Allocate memory tracking linked list element
-	new = malloc(sizeof(*new));
-	
-	// Add to the front of the list
-	new->previous = free_memory_list;
-	new->allocation = allocation;
-	free_memory_list = new;
-}
 
 void tcp_proxy_return_upstream_connection(uv_tcp_t* stream)
 {

@@ -13,7 +13,7 @@ clean:
 
 # Executable Targets
 bin/openbalance: obj/logging.o obj/main.o obj/config.o obj/module.o \
-                 obj/modules.o obj/event.o
+                 obj/modules.o obj/event.o obj/memory.o
 	${CC} -o $@ $^ ${OB_LIBS}
 
 
@@ -29,6 +29,9 @@ obj/config.o: src/config.c src/config.h obj/modules.o
 
 obj/module.o: src/module.c src/module.h
 	${CC_OBJ} src/module.c
+
+obj/memory.o: src/memory.c src/memory.h
+	${CC_OBJ} src/memory.c
 
 obj/event.o: src/event.c src/event.h
 	${CC_OBJ} src/event.c
