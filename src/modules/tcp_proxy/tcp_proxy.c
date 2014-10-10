@@ -161,7 +161,7 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 	// Set reference to listener stream
 	new->server = listener;
 	
-	// Initialize and accept connection
+	// Initialize downstream connection
 	new->downstream = malloc(sizeof(*new->downstream));
 	ret = uv_tcp_init(new->server->loop, new->downstream);
 	if(ret)
@@ -169,6 +169,8 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 		log_message(LOG_ERROR, "Failed initializing new client socket\n");
 		return;
 	}
+	
+	// Accept connection
 	new->downstream->data = new;
 	ret = uv_accept(new->server, (uv_stream_t*)new->downstream);
 	if(ret)
@@ -177,10 +179,11 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 		return;
 	}
 	
-	// Recycle open connection if available
+	// Recycle open upstream connection if available
 	if((new->upstream = upstream_from_pool(new->config->pool)))
 	{
 		new->upstream->data = new;
+		// Set read event handlers
 		ret = uv_read_start((uv_stream_t*) new->downstream,
 		                    alloc_from_pool, tcp_proxy_client_read);
 		if(ret)
@@ -199,8 +202,8 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 	}
 	else
 	{
+		// Start a new upstream connection if one was not available in pool
 		new->connection = malloc(sizeof(*new->connection));
-	
 		new->upstream = malloc(sizeof(*new->upstream));
 		ret = uv_tcp_init(listener->loop, new->upstream);
 		if(ret)
@@ -208,9 +211,10 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 			log_message(LOG_ERROR, "Error initializing upstream tcp socket\n");
 			return;
 		}
+		
 		new->connection->data = new;
 		new->upstream->data = new;
-	
+		
 		ret = uv_tcp_connect(new->connection, new->upstream,
 		                     (struct sockaddr *)new->config->upstream_addr,
 		                     tcp_proxy_new_upstream);
@@ -234,7 +238,6 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 	{
 		log_message(LOG_ERROR, "Failed handling new upstream connection\n");
 		// Accept and shut down the connection
-		uv_accept(client->server, (uv_stream_t*)client->downstream);
 		uv_close((uv_handle_t*)client->downstream, free_handle);
 		// Cleanup the rest of the connection
 		uv_close((uv_handle_t*)client->upstream, free_handle);
@@ -242,6 +245,7 @@ void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 		return;
 	}
 	
+	// Set read event handlers
 	ret = uv_read_start((uv_stream_t*) client->downstream,
 	                    alloc_from_pool, tcp_proxy_client_read);
 	if(ret)
@@ -271,18 +275,23 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 	
 	if(readlen < 0)
 	{
+		log_message(LOG_INFO, "Client disconnected\n");
+		
+		// Free associated buffer and handle
 		if(buffer->base)
 		{
 			return_alloc_to_pool(buffer->base);
 		}
 		uv_close((uv_handle_t*)inbound, free_handle);
-		log_message(LOG_INFO, "Client disconnected\n");
+		
+		// Return connection to pool or close based on settings
 		if(client->config->connection_pooling)
 			return_upstream_connection(client->upstream, client->config->pool);
 		else
 			uv_close((uv_handle_t*)client->upstream, free_handle);
 		free(client);
-		//uv_stop(inbound->loop);
+		
+		//uv_stop(inbound->loop); // FOR TESTING
 		return;
 	}
 	else if(readlen == 0)
@@ -298,7 +307,7 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		
 		req = calloc(1, sizeof(*req));
 		req->data = response;
-		// Send to upstream connection
+		// Send to associated upstream connection
 		uv_write(req, (uv_stream_t *)client->upstream, response, 1,
 		         free_request);
 	}
@@ -315,6 +324,7 @@ void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
 	if(readlen < 0)
 	{
 		log_message(LOG_DEBUG, "Upstream disconnected\n");
+		// Close client and upstream handles and free structures
 		uv_close((uv_handle_t*)inbound, free_handle);
 		uv_close((uv_handle_t*)client->downstream, free_handle);
 		free(buffer->base);
