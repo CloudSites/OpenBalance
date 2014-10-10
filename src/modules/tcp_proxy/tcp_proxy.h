@@ -47,11 +47,11 @@ handler_response tcp_proxy_cleanup(void *config);
 // Event Handlers
 void tcp_proxy_new_client(uv_stream_t *server, int status);
 void tcp_proxy_new_upstream(uv_connect_t* conn, int status);
-void tcp_proxy_free_handle(uv_handle_t *handle);
+
 void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
                              const uv_buf_t *buffer);
 void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
                                const uv_buf_t *buffer);
 void tcp_proxy_free_request(uv_write_t *req, int status);
-void tcp_proxy_return_upstream_connection(uv_tcp_t* connection);
+
 #endif
