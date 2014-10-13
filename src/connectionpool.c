@@ -1,28 +1,27 @@
 #include "connectionpool.h"
 
-
 void return_upstream_connection(uv_tcp_t* stream,
-                                upstream_connection *pool)
+                                upstream_connection **pool)
 {
 	upstream_connection *new = malloc(sizeof(*new));
 
 	// Add to the front of the list
-	new->previous = pool;
+	new->previous = *pool;
 	new->stream = stream;
-	pool = new;
+	*pool = new;
 }
 
 
-uv_tcp_t* upstream_from_pool(upstream_connection *pool)
+uv_tcp_t* upstream_from_pool(upstream_connection **pool)
 {
 	uv_tcp_t *ret;
 	
-	if(!pool)
+	if(!(*pool))
 		return NULL;
 	else
 	{
-		ret = pool->stream;
-		pool = pool->previous;
+		ret = (*pool)->stream;
+		*pool = (*pool)->previous;
 		return ret;
 	}
 }
@@ -44,4 +43,36 @@ void free_conn_pool(upstream_connection *pool)
 void free_handle(uv_handle_t *handle)
 {
 	free(handle);
+}
+
+void upstream_disconnected(upstream_connection **pool, uv_tcp_t* connection)
+{
+	upstream_connection *previous = NULL;
+	upstream_connection *i = *pool;
+	
+	while(i)
+	{
+		if(i->stream == connection)
+		{
+			if(previous)
+			{
+				// If we're removing a list element not at the top, remove
+				//  this element and set the one before to point where this one
+				//  used to
+				previous->previous = i->previous;
+				free(i);
+			}
+			else
+			{
+				// If this is at the top of the queue we just pop it off moving
+				//  the next one up to the top
+				printf("is at the top of the reuse queue\n");
+				*pool = i->previous;
+				free(i);
+			}
+			return;
+		}
+		previous = i;
+		i = i->previous;
+	}
 }

@@ -180,7 +180,7 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 	}
 	
 	// Recycle open upstream connection if available
-	if((new->upstream = upstream_from_pool(new->config->pool)))
+	if((new->upstream = upstream_from_pool(&new->config->pool)))
 	{
 		new->upstream->data = new;
 		// Set read event handlers
@@ -286,10 +286,13 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		
 		// Return connection to pool or close based on settings
 		if(client->config->connection_pooling)
-			return_upstream_connection(client->upstream, client->config->pool);
+		{
+			return_upstream_connection(client->upstream,
+			                           &(client->config->pool));
+			client->downstream = NULL;
+		}
 		else
-			uv_close((uv_handle_t*)client->upstream, free_handle);
-		free(client);
+			uv_close((uv_handle_t*)client->upstream, free_handle_and_client);
 		
 		//uv_stop(inbound->loop); // FOR TESTING
 		return;
@@ -314,19 +317,23 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 }
 
 
-void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
+void tcp_proxy_upstream_read(uv_stream_t *outbound, ssize_t readlen,
                              const uv_buf_t *buffer)
 {
 	uv_buf_t *response;
 	uv_write_t *req;
-	tcp_proxy_client *client = inbound->data;
+	tcp_proxy_client *client = outbound->data;
 	
 	if(readlen < 0)
 	{
 		log_message(LOG_DEBUG, "Upstream disconnected\n");
 		// Close client and upstream handles and free structures
-		uv_close((uv_handle_t*)inbound, free_handle);
-		uv_close((uv_handle_t*)client->downstream, free_handle);
+		uv_close((uv_handle_t*)outbound, free_handle);
+		if(client->downstream)
+			uv_close((uv_handle_t*)client->downstream, free_handle);
+		else
+			upstream_disconnected(&(client->config->pool),
+			                      (uv_tcp_t*) outbound);
 		free(buffer->base);
 		free(client);
 		return;
@@ -341,4 +348,11 @@ void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
 	// Send to upstream connection
 	uv_write(req, (uv_stream_t *)client->downstream, response, 1,
 	         free_request);
+}
+
+void free_handle_and_client(uv_handle_t *handle)
+{
+	tcp_proxy_client *client = handle->data;
+	free(handle);
+	free(client);
 }

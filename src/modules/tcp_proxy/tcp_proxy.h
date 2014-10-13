@@ -52,5 +52,6 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
                            const uv_buf_t *buffer);
 void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
                              const uv_buf_t *buffer);
+void free_handle_and_client(uv_handle_t *handle);
 
 #endif
