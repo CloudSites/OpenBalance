@@ -105,10 +105,10 @@ int config_file(char *filepath)
 	json_t *file_root;
 	json_error_t error;
 	const char *key;
-	json_t *value;
+	json_t *value, *array_value;
 	ob_module_structure *i;
-	ob_module *new;
 	int match;
+	size_t array_index;
 	
 	// Parse JSON
 	file_root = json_load_file(filepath, JSON_REJECT_DUPLICATES, &error);
@@ -148,37 +148,24 @@ int config_file(char *filepath)
 			if(!strcmp(i->name, key))
 			{
 				match = 1;
-				// Allocate config structure for this module and add to list
-				new = malloc(sizeof(*new));
-				if(!new)
+				if(json_is_array(value))
 				{
-					log_message(LOG_ERROR,
-					            "Failed to allocate module structure\n");
-					json_decref(file_root);
-					return 0;
-				}
-				if(!module_list)
-				{
-					new->previous = NULL;
+					json_array_foreach(value, array_index, array_value)
+					{
+						if(!load_module(i, array_value))
+						{
+							json_decref(file_root);
+							return 0;
+						}
+					}
 				}
 				else
 				{
-					new->previous = module_list;
-				}
-				module_list = new;
-				// Copy name and hooks over
-				new->name = i->name;
-				new->configure = i->configure;
-				new->startup = i->startup;
-				new->cleanup = i->cleanup;
-				
-				// Run configuration hook
-				if(new->configure(value, &(new->config)) != MOD_OK)
-				{
-					log_message(LOG_ERROR,
-					            "Configuration for '%s' module failed\n", key);
-					json_decref(file_root);
-					return 0;
+					if(!load_module(i, value))
+					{
+						json_decref(file_root);
+						return 0;
+					}
 				}
 			}
 		}
@@ -196,6 +183,44 @@ int config_file(char *filepath)
 	json_decref(file_root);
 	return 1;
 }
+
+
+int load_module(ob_module_structure *module, json_t *config)
+{
+	ob_module *new;
+	new = malloc(sizeof(*new));
+	if(!new)
+	{
+		log_message(LOG_ERROR,
+		            "Failed to allocate module structure\n");
+		return 0;
+	}
+	if(!module_list)
+	{
+		new->previous = NULL;
+	}
+	else
+	{
+		new->previous = module_list;
+	}
+	module_list = new;
+	// Copy name and hooks over
+	new->name = module->name;
+	new->configure = module->configure;
+	new->startup = module->startup;
+	new->cleanup = module->cleanup;
+	
+	// Run configuration hook
+	if(new->configure(config, &(new->config)) != MOD_OK)
+	{
+		log_message(LOG_ERROR,
+		            "Configuration for '%s' module failed\n", module->name);
+		return 0;
+	}
+	
+	return 1;
+}
+
 
 void config_cleanup(void)
 {
