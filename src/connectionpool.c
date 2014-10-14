@@ -66,7 +66,6 @@ void upstream_disconnected(upstream_connection **pool, uv_tcp_t* connection)
 			{
 				// If this is at the top of the queue we just pop it off moving
 				//  the next one up to the top
-				printf("is at the top of the reuse queue\n");
 				*pool = i->previous;
 				free(i);
 			}
