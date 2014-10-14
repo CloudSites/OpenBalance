@@ -4,7 +4,18 @@
 
 int init_event_system(void)
 {
-	event_loop = uv_loop_new();
+	event_loop = malloc(sizeof *event_loop);
+	if (!event_loop) {
+	    log_message(LOG_ERROR, "Could not allocate memory for event loop");
+	    return 0;
+	}
+
+        if (uv_loop_init(event_loop) < 0) {
+	    log_message(LOG_ERROR, "Could not initialize event loop");
+	    free(event_loop);
+	    return 0;
+        }
+
 	return 1;
 }
 
