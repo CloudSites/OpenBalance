@@ -54,7 +54,7 @@ handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
 }
 
 
-handler_response tcp_proxy_startup(void *config, ob_module *module)
+handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 {
 	int ret;
 	tcp_proxy_config *cfg = config;
@@ -83,7 +83,7 @@ handler_response tcp_proxy_startup(void *config, ob_module *module)
 	}
 
 	// Initialize listening tcp socket
-	ret = uv_tcp_init(event_loop, cfg->listener);
+	ret = uv_tcp_init(master_loop, cfg->listener);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Failed to initialize tcp socket: %s\n",
@@ -282,7 +282,7 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		{
 			return_alloc_to_pool(buffer->base);
 		}
-		uv_close((uv_handle_t*)inbound, free_handle);
+		uv_close((uv_handle_t*)inbound, free_handle_and_client);
 
 		// Return connection to pool or close based on settings
 		if(client->config->connection_pooling)
@@ -294,7 +294,7 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		else
 			uv_close((uv_handle_t*)client->upstream, free_handle_and_client);
 
-		//uv_stop(inbound->loop); // FOR TESTING
+		uv_stop(inbound->loop); // FOR TESTING
 		return;
 	}
 	else if(readlen == 0)

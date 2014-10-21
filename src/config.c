@@ -1,9 +1,12 @@
 #include "config.h"
 
+// Internal prototypes
+void set_defaults(void);
 void help_option(void);
 void invalid_option(void);
 int log_level(char *level);
 int config_file(char *filepath);
+int worker_thread_count(char *count);
 
 
 // Handle the command line arguments
@@ -14,8 +17,10 @@ int parse_cli_arguments(int argc, char *argv[])
 	// Squelch getopt's error output, we handle that ourselves!
 	opterr = 0;
 
+	set_defaults();
+
 	// Iterate over options and handle them as they come
-	while((opt_char = getopt(argc, argv, "hl:c:")) != -1)
+	while((opt_char = getopt(argc, argv, "hl:c:w:")) != -1)
 	{
 		switch(opt_char)
 		{
@@ -42,6 +47,15 @@ int parse_cli_arguments(int argc, char *argv[])
 					return 0;
 				}
 				break;
+			case 'w':
+				if(!worker_thread_count(optarg))
+				{
+					log_message(LOG_ERROR,
+					            "Worker thread count could not be set to %s\n",
+					            optarg);
+					return 0;
+				}
+				break;
 			case '?':
 				// Unhandled option
 				invalid_option();
@@ -52,6 +66,17 @@ int parse_cli_arguments(int argc, char *argv[])
 	return 1;
 }
 
+void set_defaults(void)
+{
+	uv_cpu_info_t *procinfo;
+	int logical_core_count;
+
+	uv_cpu_info(&procinfo, &logical_core_count);
+	uv_free_cpu_info(procinfo, logical_core_count);
+
+	global_config.worker_threads = logical_core_count;
+}
+
 // Print help dialog
 void help_option(void)
 {
@@ -59,7 +84,8 @@ void help_option(void)
 	       " -h       | Display this help prompt\n"
 	       " -l LEVEL | Set logging level [EMERGENCY, ALERT, ERROR, WARNING, "
 	         "INFO, DEBUG]\n"
-	       " -c FILE  | Use configuration file provided\n");
+	       " -c FILE  | Use configuration file provided\n"
+	       " -w COUNT | Number of worker threads to use\n");
 }
 
 
@@ -96,6 +122,18 @@ int log_level(char *level)
 		}
 	}
 	return 0;
+}
+
+// Handle worker option
+int worker_thread_count(char *count)
+{
+	// Convert to int and limit to 1-128
+	int new_count = atoi(count);
+	if(new_count < 1 || new_count > 128)
+		return 0;
+
+	global_config.worker_threads = new_count;
+	return 1;
 }
 
 

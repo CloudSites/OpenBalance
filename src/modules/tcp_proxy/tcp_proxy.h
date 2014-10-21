@@ -41,7 +41,7 @@ struct tcp_proxy_client
 
 // Module hooks
 handler_response tcp_proxy_configure(json_t* config, void **conf_struct);
-handler_response tcp_proxy_startup(void *config, ob_module *module);
+handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop);
 handler_response tcp_proxy_cleanup(void *config);
 
 // Event Handlers

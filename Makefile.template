@@ -1,8 +1,8 @@
 # Config Options
-CC=${config['compiler']} -g -Wall -Werror -Isrc/ \
+CC=${config['compiler']} -g -Wall -Werror -Isrc/\
 <%text>
 CC_OBJ=${CC} -c -o $@
-OB_LIBS=-ljansson -luv
+OB_LIBS=-ljansson -luv -lzmq
 
 # Main Targets
 all: bin obj bin/openbalance
@@ -13,7 +13,8 @@ clean:
 
 # Executable Targets
 bin/openbalance: obj/logging.o obj/main.o obj/config.o obj/module.o \
-                 obj/modules.o obj/event.o obj/memory.o obj/connectionpool.o
+                 obj/modules.o obj/event.o obj/memory.o obj/connectionpool.o \
+                 obj/master.o obj/worker.o
 	${CC} -o $@ $^ ${OB_LIBS}
 
 
@@ -38,6 +39,12 @@ obj/connectionpool.o: src/connectionpool.c src/connectionpool.h
 
 obj/event.o: src/event.c src/event.h
 	${CC_OBJ} src/event.c
+
+obj/master.o: src/master.c src/master.h
+	${CC_OBJ} src/master.c
+
+obj/worker.o: src/worker.c src/worker.h
+	${CC_OBJ} src/worker.c
 
 obj/modules.o: src/modules/*/*.c src/modules/*/*.h src/builder.py src/modules.h.template
 	@python src/builder.py ${OB_LIBS}

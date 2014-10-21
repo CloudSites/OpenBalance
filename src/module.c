@@ -2,7 +2,7 @@
 
 ob_module *module_list;
 
-int startup_modules(ob_module *startup_list)
+int startup_modules(ob_module *startup_list, uv_loop_t *master_loop)
 {
 	ob_module *module;
 	handler_response ret;
@@ -10,7 +10,7 @@ int startup_modules(ob_module *startup_list)
 
 	while(module)
 	{
-		ret = module->startup(module->config, module);
+		ret = module->startup(module->config, master_loop);
 		if(ret != MOD_OK)
 		{
 			log_message(LOG_ERROR, "%s failed to start up\n", module->name);

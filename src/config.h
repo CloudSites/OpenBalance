@@ -12,6 +12,16 @@
 
 #define DEFAULT_CONFIG_FILE_PATH "/etc/openbalance/openbalance.conf"
 
+
+typedef struct openbalance_config openbalance_config;
+
+struct openbalance_config
+{
+	int worker_threads;
+};
+
+openbalance_config global_config;
+
 int parse_cli_arguments(int argc, char *argv[]);
 void config_cleanup(void);
 char* get_config_string(json_t* json, char *key, char* def_value,

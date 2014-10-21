@@ -5,7 +5,8 @@
 #include "event.h"
 #include "config.h"
 #include "logging.h"
-#include "memory.h"
+#include "master.h"
+#include "worker.h"
 
 #define VERSION "0.0.0"
 
