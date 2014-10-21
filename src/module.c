@@ -7,7 +7,7 @@ int startup_modules(ob_module *startup_list)
 	ob_module *module;
 	handler_response ret;
 	module = startup_list;
-	
+
 	while(module)
 	{
 		ret = module->startup(module->config, module);
