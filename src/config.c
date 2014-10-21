@@ -109,7 +109,7 @@ int config_file(char *filepath)
 	ob_module_structure *i;
 	int match;
 	size_t array_index;
-	
+
 	// Parse JSON
 	file_root = json_load_file(filepath, JSON_REJECT_DUPLICATES, &error);
 	if(!file_root)
@@ -138,7 +138,7 @@ int config_file(char *filepath)
 		json_decref(file_root);
 		return 0;
 	}
-	
+
 	// Handle per-module configs
 	json_object_foreach(file_root, key, value)
 	{
@@ -169,7 +169,7 @@ int config_file(char *filepath)
 				}
 			}
 		}
-		
+
 		if(!match)
 		{
 			log_message(LOG_ERROR,
@@ -179,7 +179,7 @@ int config_file(char *filepath)
 			return 0;
 		}
 	}
-	
+
 	json_decref(file_root);
 	return 1;
 }
@@ -209,7 +209,7 @@ int load_module(ob_module_structure *module, json_t *config)
 	new->configure = module->configure;
 	new->startup = module->startup;
 	new->cleanup = module->cleanup;
-	
+
 	// Run configuration hook
 	if(new->configure(config, &(new->config)) != MOD_OK)
 	{
@@ -217,7 +217,7 @@ int load_module(ob_module_structure *module, json_t *config)
 		            "Configuration for '%s' module failed\n", module->name);
 		return 0;
 	}
-	
+
 	return 1;
 }
 
@@ -247,7 +247,7 @@ char* get_config_string(json_t* json, char *key, char* def_value,
 	json_t *value;
 	size_t len;
 	char *ret;
-	
+
 	value = json_object_get(json, key);
 	if(!value)
 	{
@@ -279,7 +279,7 @@ char* get_config_string(json_t* json, char *key, char* def_value,
 int get_config_int(json_t* json, char *key, int def_value)
 {
 	json_t *value;
-	
+
 	value = json_object_get(json, key);
 	if(!value)
 	{
@@ -304,7 +304,7 @@ int get_config_int(json_t* json, char *key, int def_value)
 int get_config_boolean(json_t* json, char *key, int def_value)
 {
 	json_t *value;
-	
+
 	value = json_object_get(json, key);
 	if(!value)
 	{

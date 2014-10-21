@@ -15,7 +15,7 @@ void return_upstream_connection(uv_tcp_t* stream,
 uv_tcp_t* upstream_from_pool(upstream_connection **pool)
 {
 	uv_tcp_t *ret;
-	
+
 	if(!(*pool))
 		return NULL;
 	else
@@ -49,7 +49,7 @@ void upstream_disconnected(upstream_connection **pool, uv_tcp_t* connection)
 {
 	upstream_connection *previous = NULL;
 	upstream_connection *i = *pool;
-	
+
 	while(i)
 	{
 		if(i->stream == connection)

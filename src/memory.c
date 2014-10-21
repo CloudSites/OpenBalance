@@ -24,10 +24,10 @@ void alloc_from_pool(uv_handle_t *handle, size_t suggested_size,
 void return_alloc_to_pool(void *allocation)
 {
 	memory_allocation *new;
-	
+
 	// Allocate memory tracking linked list element
 	new = malloc(sizeof(*new));
-	
+
 	// Add to the front of the list
 	new->previous = free_memory_list;
 	new->allocation = allocation;
@@ -51,7 +51,7 @@ void free_pool(void)
 void free_request(uv_write_t *req, int status)
 {
 	uv_buf_t *ptr = req->data;
-	
+
 	// Save the read buffer for reuse, free the rest
 	return_alloc_to_pool(ptr->base);
 	free(ptr);
