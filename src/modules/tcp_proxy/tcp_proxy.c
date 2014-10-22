@@ -57,8 +57,9 @@ handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
 handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 {
 	int ret;
-	tcp_proxy_config *cfg = config;
 	struct sockaddr_in bind_addr;
+	tcp_proxy_config *cfg = config;
+	accept_callback *callback;
 
 	log_message(LOG_INFO, "tcp proxy starting!\n");
 
@@ -90,7 +91,13 @@ handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 		            uv_err_name(ret));
 		return MOD_ERROR;
 	}
-	cfg->listener->data = cfg;
+
+	// Allocate new client callback
+	callback = malloc(sizeof(*callback));
+	callback->callback = tcp_proxy_new_client;
+	callback->data = cfg;
+	cfg->accept_cb = callback;
+	cfg->listener->data = callback;
 
 	// Bind address
 	ret = uv_tcp_bind(cfg->listener, (struct sockaddr*)&bind_addr, 0);
@@ -103,7 +110,7 @@ handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 
 	// Begin listening
 	ret = uv_listen((uv_stream_t*) cfg->listener, cfg->backlog_size,
-	                tcp_proxy_new_client);
+	                proxy_new_client);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Listen error: %s\n", uv_err_name(ret));
@@ -136,54 +143,22 @@ handler_response tcp_proxy_cleanup(void *config)
 	// Free remainder of configuration structure
 	free(module_config->upstream_addr);
 	free(module_config->listener);
+	free(module_config->accept_cb);
 	free(module_config);
 	return MOD_OK;
 }
 
 
-void tcp_proxy_new_client(uv_stream_t *listener, int status)
+void tcp_proxy_new_client(proxy_client *new, uv_stream_t *listener)
 {
 	int ret;
-	tcp_proxy_client *new;
-
-	log_message(LOG_INFO, "New client connection\n");
-
-	if(status)
-	{
-		log_message(LOG_ERROR, "Error accepting new client\n");
-		return;
-	}
-
-	// Allocate our client structure
-	new = malloc(sizeof(*new));
-	// Set reference to config structure
-	new->config = listener->data;
-	// Set reference to listener stream
-	new->server = listener;
-
-	// Initialize downstream connection
-	new->downstream = malloc(sizeof(*new->downstream));
-	ret = uv_tcp_init(new->server->loop, new->downstream);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Failed initializing new client socket\n");
-		return;
-	}
-
-	// Accept connection
-	new->downstream->data = new;
-	ret = uv_accept(new->server, (uv_stream_t*)new->downstream);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Failed to accept new client socket\n");
-		return;
-	}
+	tcp_proxy_config *config = listener->data;
 
 	// Recycle open upstream connection if available
-	if((new->upstream = upstream_from_pool(&new->config->pool)))
+	if((new->upstream = upstream_from_pool(&config->pool)))
 	{
-		new->upstream->data = new;
 		// Set read event handlers
+		new->downstream->data = new;
 		ret = uv_read_start((uv_stream_t*) new->downstream,
 		                    alloc_from_pool, tcp_proxy_client_read);
 		if(ret)
@@ -192,6 +167,7 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 			return;
 		}
 
+		new->upstream->data = new;
 		ret = uv_read_start((uv_stream_t*) new->upstream,
 		                    alloc_from_pool, tcp_proxy_upstream_read);
 		if(ret)
@@ -216,7 +192,7 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 		new->upstream->data = new;
 
 		ret = uv_tcp_connect(new->connection, new->upstream,
-		                     (struct sockaddr *)new->config->upstream_addr,
+		                     (struct sockaddr *)config->upstream_addr,
 		                     tcp_proxy_new_upstream);
 		if(ret)
 		{
@@ -226,10 +202,11 @@ void tcp_proxy_new_client(uv_stream_t *listener, int status)
 	}
 }
 
+
 void tcp_proxy_new_upstream(uv_connect_t* conn, int status)
 {
 	int ret;
-	tcp_proxy_client *client = conn->data;
+	proxy_client *client = conn->data;
 	free(client->connection);
 
 	log_message(LOG_INFO, "New upstream\n");
@@ -269,7 +246,8 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 {
 	uv_buf_t *response;
 	uv_write_t *req;
-	tcp_proxy_client *client = inbound->data;
+	proxy_client *client = inbound->data;
+	tcp_proxy_config *config = client->data;
 
 	log_message(LOG_DEBUG, "Client read event\n");
 
@@ -285,10 +263,10 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		uv_close((uv_handle_t*)inbound, free_handle_and_client);
 
 		// Return connection to pool or close based on settings
-		if(client->config->connection_pooling)
+		if(config->connection_pooling)
 		{
 			return_upstream_connection(client->upstream,
-			                           &(client->config->pool));
+			                           &(config->pool));
 			client->downstream = NULL;
 		}
 		else
@@ -322,7 +300,8 @@ void tcp_proxy_upstream_read(uv_stream_t *outbound, ssize_t readlen,
 {
 	uv_buf_t *response;
 	uv_write_t *req;
-	tcp_proxy_client *client = outbound->data;
+	proxy_client *client = outbound->data;
+	tcp_proxy_config *config = client->data;
 
 	if(readlen < 0)
 	{
@@ -332,7 +311,7 @@ void tcp_proxy_upstream_read(uv_stream_t *outbound, ssize_t readlen,
 		if(client->downstream)
 			uv_close((uv_handle_t*)client->downstream, free_handle);
 		else
-			upstream_disconnected(&(client->config->pool),
+			upstream_disconnected(&(config->pool),
 			                      (uv_tcp_t*) outbound);
 		free(buffer->base);
 		free(client);
@@ -352,7 +331,7 @@ void tcp_proxy_upstream_read(uv_stream_t *outbound, ssize_t readlen,
 
 void free_handle_and_client(uv_handle_t *handle)
 {
-	tcp_proxy_client *client = handle->data;
+	proxy_client *client = handle->data;
 	free(handle);
 	free(client);
 }

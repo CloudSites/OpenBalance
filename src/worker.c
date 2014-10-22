@@ -3,20 +3,17 @@
 
 int start_workers(void)
 {
-	int iterator;
-	thread_list *new_worker;
+	worker_list *first, *i;
 
-	worker_threads = NULL;
-
-	// Spin up workers
-	for(iterator = global_config.worker_threads; iterator; iterator--)
+	// Start up workers
+	first = workers;
+	i = first;
+	do
 	{
-		new_worker = malloc(sizeof(*new_worker));
-		new_worker->previous = worker_threads;
-		worker_threads = new_worker;
-		snprintf(new_worker->addr, 19, "inproc://worker%d", iterator - 1);
-		uv_thread_create(&(new_worker->thread), worker_thread, new_worker);
+		uv_thread_create(&(i->thread), worker_thread, i);
+		i = i->next;
 	}
+	while(i != first);
 
 	return 1;
 }
@@ -25,17 +22,22 @@ int start_workers(void)
 void worker_thread(void *arg)
 {
 	int running = 1;
-	void *master_socket = zmq_socket(zeromq_context, ZMQ_PAIR);
 	worker_event event;
 	master_event online_notice;
-	thread_list *this = arg;
+	worker_list *this = arg;
+	void *master_socket = zmq_socket(zeromq_context, ZMQ_PAIR);
 
-	zmq_connect(master_socket, this->addr);
-	online_notice.data = (void*)this->addr;
+	// Send master worker_online notification
+	zmq_connect(master_socket, this->address);
+	online_notice.data = (void*)this->address;
 	zmq_send(master_socket, &online_notice, sizeof(online_notice), 0);
+
+	// Worker process loop
 	while(running)
 	{
+		// Get an event from the master
 		zmq_recv(master_socket, &event, sizeof(event), 0);
+		// Execute event by type
 		switch(event.type)
 		{
 			case WORKER_SHUTDOWN:
@@ -48,8 +50,18 @@ void worker_thread(void *arg)
 				break;
 		}
 	}
-	
+
+	zmq_close(this->socket);
 	zmq_close(master_socket);
 }
 
+worker_list* get_worker(void)
+{
+	worker_list *worker;
 
+	// Return current worker from list, rotate to next
+	worker = workers;
+	workers = workers->next;
+
+	return worker;
+}

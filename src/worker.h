@@ -5,20 +5,21 @@
 #include "config.h"
 
 
-typedef struct thread_list thread_list;
+typedef struct worker_list worker_list;
 
-struct thread_list
+struct worker_list
 {
 	uv_thread_t thread;
-	char addr[20];
-	thread_list *previous;
+	void *socket;
+	char address[20];
+	worker_list *next;
 };
 
-
-thread_list *worker_threads;
+worker_list *workers;
 
 
 int start_workers(void);
 void worker_thread(void *arg);
+worker_list* get_worker(void);
 
 #endif
