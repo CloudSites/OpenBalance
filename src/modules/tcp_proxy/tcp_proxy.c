@@ -36,7 +36,7 @@ handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
 	module_config->upstream_port = get_config_int(config, "upstream_port",
 	                                              6379);
 	if(module_config->upstream_port < 1
-	   || module_config->upstream_port > 65535)
+	   || module_config->upstream_port >= 65535)
 		return MOD_ERROR;
 
 	module_config->backlog_size = get_config_int(config, "backlog_size", 128);
@@ -57,20 +57,12 @@ handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
 handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 {
 	int ret;
-	struct sockaddr_in bind_addr;
 	tcp_proxy_config *cfg = config;
 	accept_callback *callback;
+	resolve_callback *resolve_cb;
+	bind_and_listen_data *bnl_data;
 
 	log_message(LOG_INFO, "tcp proxy starting!\n");
-
-	// Resolve listen address
-	ret = uv_ip4_addr(cfg->listen_host, cfg->listen_port, &bind_addr);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Listen socket resolution error: %s\n",
-		            uv_err_name(ret));
-		return MOD_ERROR;
-	}
 
 	// Resolve upstream address
 	cfg->upstream_addr = malloc(sizeof(*cfg->upstream_addr));
@@ -83,40 +75,24 @@ handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 		return MOD_ERROR;
 	}
 
-	// Initialize listening tcp socket
-	ret = uv_tcp_init(master_loop, cfg->listener);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Failed to initialize tcp socket: %s\n",
-		            uv_err_name(ret));
-		return MOD_ERROR;
-	}
+	// Setup address resolution callback
+	resolve_cb = malloc(sizeof(*resolve_cb));
+	resolve_cb->callback = bind_on_and_listen;
 
-	// Allocate new client callback
+	// Setup bind and listen parameters
+	bnl_data = malloc(sizeof(*bnl_data));
+	bnl_data->backlog_size = cfg->backlog_size;
+	bnl_data->listener = cfg->listener;
+	resolve_cb->data = bnl_data;
+
+	// Setup connection acceptor callback
 	callback = malloc(sizeof(*callback));
 	callback->callback = tcp_proxy_new_client;
 	callback->data = cfg;
-	cfg->accept_cb = callback;
+	bnl_data->accept_cb = callback;
 
-	// Bind address
-	ret = uv_tcp_bind(cfg->listener, (struct sockaddr*)&bind_addr, 0);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Failed to bind on %s:%d: %s\n",
-		            cfg->listen_host, cfg->listen_port,uv_err_name(ret));
-		return MOD_ERROR;
-	}
-
-	cfg->listener->data = callback;
-
-	// Begin listening
-	ret = uv_listen((uv_stream_t*) cfg->listener, cfg->backlog_size,
-	                proxy_new_client);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Listen error: %s\n", uv_err_name(ret));
-		return MOD_ERROR;
-	}
+	// Put it all in motion
+	resolve_address(master_loop, "tcp://127.0.0.1:6380", resolve_cb);
 
 	return MOD_OK;
 }

@@ -41,7 +41,6 @@ handler_response tcp_proxy_cleanup(void *config);
 // Event Handlers
 void tcp_proxy_new_client(proxy_client *new, uv_stream_t *listener);
 void tcp_proxy_new_upstream(uv_connect_t* conn, int status);
-
 void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
                            const uv_buf_t *buffer);
 void tcp_proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
