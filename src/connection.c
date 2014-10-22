@@ -80,36 +80,40 @@ void upstream_disconnected(upstream_connection **pool, uv_tcp_t* connection)
 int resolve_address(uv_loop_t *loop, char *address, resolve_callback *callback)
 {
 	int nodelen, servicelen;
-	char *node_start, *node_end, *node, *service_start, *service;
+	char *node_start, *node_end, *service_start;
 	uv_getaddrinfo_t *lookup_req;
 
-	printf("%s\n", address);
 	if(!strncasecmp("tcp://", address, 6))
 	{
+		// Search for port separator ':'
 		node_start = address + 6;
 		node_end = strchr(node_start, ':');
 		if(!node_end)
 			return 0;
-		nodelen = node_end - node_start;
-		node = malloc(nodelen + 1);
-		memcpy(node, node_start, nodelen);
-		node[nodelen] = '\0';
 
+		// Determine length of node name and allocate
+		nodelen = node_end - node_start;
+		callback->node = malloc(nodelen + 1);
+		memcpy(callback->node, node_start, nodelen);
+		callback->node[nodelen] = '\0';
+
+		// Determine lenght of service name and allocate
 		service_start = node_end + 1;
 		servicelen = strlen(service_start);
-		service = malloc(servicelen + 1);
-		memcpy(service, service_start, servicelen);
-		service[servicelen] = '\0';
+		callback->service = malloc(servicelen + 1);
+		memcpy(callback->service, service_start, servicelen);
+		callback->service[servicelen] = '\0';
 
+		// Build the libuv getaddrinfo request
 		lookup_req = malloc(sizeof(*lookup_req));
 		lookup_req->data = callback;
-		uv_getaddrinfo(loop, lookup_req, resolve_address_cb, node, service,
-		               NULL);
+		uv_getaddrinfo(loop, lookup_req, resolve_address_cb, callback->node,
+		               callback->service, NULL);
 	}
 	else if(!strncasecmp("unix://", address, 7))
 	{
 		// TODO actual unix socket support
-		printf("unix");
+		printf("unix socket support soon\n");
 	}
 	else
 	{
@@ -134,6 +138,9 @@ void resolve_address_cb(uv_getaddrinfo_t *req, int status,
 	}
 
 	callback->callback(req, res);
+	free(callback->service);
+	free(callback->node);
+	free(callback);
 }
 
 
@@ -160,6 +167,9 @@ void bind_on_and_listen(uv_getaddrinfo_t *req, struct addrinfo *res)
 		return;
 	}
 
+	// Free address assets
+	uv_freeaddrinfo(res);
+
 	// Begin listening
 	data->listener->data = data->accept_cb;
 	ret = uv_listen((uv_stream_t*)data->listener, data->backlog_size,
@@ -169,6 +179,8 @@ void bind_on_and_listen(uv_getaddrinfo_t *req, struct addrinfo *res)
 		log_message(LOG_ERROR, "Listen error: %s\n", uv_err_name(ret));
 		return;
 	}
+	free(req);
+	free(data);
 }
 
 

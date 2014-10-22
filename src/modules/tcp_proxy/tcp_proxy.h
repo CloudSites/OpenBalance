@@ -20,8 +20,7 @@ typedef struct accept_callback accept_callback;
 
 struct tcp_proxy_config
 {
-	char *listen_host;
-	int listen_port;
+	char *listen_addr;
 	char *upstream_host;
 	int upstream_port;
 	int backlog_size;
@@ -29,7 +28,7 @@ struct tcp_proxy_config
 	uv_tcp_t *listener;
 	upstream_connection *pool;
 	accept_callback *accept_cb;
-	struct sockaddr_in *upstream_addr;
+	struct sockaddr_in *upstream_sockaddr;
 };
 
 

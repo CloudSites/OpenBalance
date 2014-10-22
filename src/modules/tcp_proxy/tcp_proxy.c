@@ -17,15 +17,14 @@ handler_response tcp_proxy_configure(json_t* config, void **conf_struct)
 	module_config = malloc(sizeof(*module_config));
 
 	module_config->pool = NULL;
+	module_config->accept_cb = malloc(sizeof(*module_config->accept_cb));
+	module_config->accept_cb->callback = tcp_proxy_new_client;
 	module_config->listener = calloc(1, sizeof(*module_config->listener));
 
-	module_config->listen_host = get_config_string(config, "listen_host",
-	                                               "127.0.0.1", 256);
-	if(!module_config->listen_host)
-		return MOD_ERROR;
-
-	module_config->listen_port = get_config_int(config, "listen_port", 6380);
-	if(!module_config->listen_port)
+	module_config->listen_addr = get_config_string(config, "listen_addr",
+	                                               "tcp://localhost:8080",
+	                                               300);
+	if(!module_config->listen_addr)
 		return MOD_ERROR;
 
 	module_config->upstream_host = get_config_string(config, "upstream_host",
@@ -58,16 +57,16 @@ handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 {
 	int ret;
 	tcp_proxy_config *cfg = config;
-	accept_callback *callback;
+	accept_callback *accept_cb;
 	resolve_callback *resolve_cb;
 	bind_and_listen_data *bnl_data;
 
 	log_message(LOG_INFO, "tcp proxy starting!\n");
 
 	// Resolve upstream address
-	cfg->upstream_addr = malloc(sizeof(*cfg->upstream_addr));
+	cfg->upstream_sockaddr = malloc(sizeof(*cfg->upstream_sockaddr));
 	ret = uv_ip4_addr(cfg->upstream_host, cfg->upstream_port,
-	                  cfg->upstream_addr);
+	                  cfg->upstream_sockaddr);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Upstream socket resolution error: %s\n",
@@ -86,10 +85,9 @@ handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 	resolve_cb->data = bnl_data;
 
 	// Setup connection acceptor callback
-	callback = malloc(sizeof(*callback));
-	callback->callback = tcp_proxy_new_client;
-	callback->data = cfg;
-	bnl_data->accept_cb = callback;
+	accept_cb = cfg->accept_cb;//malloc(sizeof(*accept_cb));
+	accept_cb->data = cfg;
+	bnl_data->accept_cb = accept_cb;
 
 	// Put it all in motion
 	resolve_address(master_loop, "tcp://127.0.0.1:6380", resolve_cb);
@@ -110,7 +108,7 @@ handler_response tcp_proxy_cleanup(void *config)
 		free_conn_pool(module_config->pool);
 
 	// Free handles from configuration structure
-	free(module_config->listen_host);
+	free(module_config->listen_addr);
 	free(module_config->upstream_host);
 	uv_close((uv_handle_t*)module_config->listener, NULL);
 
@@ -118,9 +116,10 @@ handler_response tcp_proxy_cleanup(void *config)
 	while(uv_run(main_loop, UV_RUN_NOWAIT));
 
 	// Free remainder of configuration structure
-	free(module_config->upstream_addr);
+	free(module_config->upstream_sockaddr);
 	free(module_config->listener);
-	free(module_config->accept_cb);
+	if(module_config->accept_cb)
+		free(module_config->accept_cb);
 	free(module_config);
 	return MOD_OK;
 }
@@ -169,7 +168,7 @@ void tcp_proxy_new_client(proxy_client *new, uv_stream_t *listener)
 		new->upstream->data = new;
 
 		ret = uv_tcp_connect(new->connection, new->upstream,
-		                     (struct sockaddr *)config->upstream_addr,
+		                     (struct sockaddr *)config->upstream_sockaddr,
 		                     tcp_proxy_new_upstream);
 		if(ret)
 		{
@@ -237,7 +236,7 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		{
 			return_alloc_to_pool(buffer->base);
 		}
-		uv_close((uv_handle_t*)inbound, free_handle);
+		uv_close((uv_handle_t*)inbound, free_handle_and_client);
 
 		// Return connection to pool or close based on settings
 		if(config->connection_pooling)

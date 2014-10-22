@@ -20,6 +20,8 @@ struct accept_callback
 
 struct resolve_callback
 {
+	char *service;
+	char *node;
 	void (*callback)(uv_getaddrinfo_t *, struct addrinfo *);
 	void *data;
 	uv_loop_t *loop;
