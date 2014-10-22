@@ -97,7 +97,6 @@ handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 	callback->callback = tcp_proxy_new_client;
 	callback->data = cfg;
 	cfg->accept_cb = callback;
-	cfg->listener->data = callback;
 
 	// Bind address
 	ret = uv_tcp_bind(cfg->listener, (struct sockaddr*)&bind_addr, 0);
@@ -107,6 +106,8 @@ handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 		            cfg->listen_host, cfg->listen_port,uv_err_name(ret));
 		return MOD_ERROR;
 	}
+
+	cfg->listener->data = callback;
 
 	// Begin listening
 	ret = uv_listen((uv_stream_t*) cfg->listener, cfg->backlog_size,
@@ -152,7 +153,7 @@ handler_response tcp_proxy_cleanup(void *config)
 void tcp_proxy_new_client(proxy_client *new, uv_stream_t *listener)
 {
 	int ret;
-	tcp_proxy_config *config = listener->data;
+	tcp_proxy_config *config = new->data;
 
 	// Recycle open upstream connection if available
 	if((new->upstream = upstream_from_pool(&config->pool)))
@@ -260,7 +261,7 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		{
 			return_alloc_to_pool(buffer->base);
 		}
-		uv_close((uv_handle_t*)inbound, free_handle_and_client);
+		uv_close((uv_handle_t*)inbound, free_handle);
 
 		// Return connection to pool or close based on settings
 		if(config->connection_pooling)
@@ -272,7 +273,7 @@ void tcp_proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		else
 			uv_close((uv_handle_t*)client->upstream, free_handle_and_client);
 
-		uv_stop(inbound->loop); // FOR TESTING
+		//uv_stop(inbound->loop); // FOR TESTING
 		return;
 	}
 	else if(readlen == 0)

@@ -83,9 +83,6 @@ void proxy_new_client(uv_stream_t *listener, int status)
 	proxy_client *new;
 	accept_callback *callback;
 
-	callback = listener->data;
-	listener->data = callback->data;
-
 	log_message(LOG_INFO, "New client connection\n");
 
 	if(status)
@@ -99,6 +96,7 @@ void proxy_new_client(uv_stream_t *listener, int status)
 
 	// Set reference to listener stream and data pointer
 	new->server = listener;
+	callback = listener->data;
 	new->data = callback->data;
 
 	// Initialize downstream connection
