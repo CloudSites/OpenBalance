@@ -7,6 +7,7 @@
 #include "logging.h"
 #include "master.h"
 #include "worker.h"
+#include "memory.h"
 
 #define VERSION "0.0.0"
 

@@ -14,9 +14,6 @@
                      tcp_proxy_cleanup}
 
 typedef struct tcp_proxy_config tcp_proxy_config;
-typedef struct upstream_connection upstream_connection;
-typedef struct proxy_client proxy_client;
-typedef struct accept_callback accept_callback;
 
 struct tcp_proxy_config
 {

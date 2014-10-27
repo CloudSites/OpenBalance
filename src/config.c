@@ -1,4 +1,5 @@
 #include "config.h"
+#include "modules.h"
 
 // Internal prototypes
 void set_defaults(void);

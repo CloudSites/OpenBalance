@@ -6,9 +6,9 @@
 #include <string.h>
 
 #include <jansson.h>
-
 #include "logging.h"
-#include "modules.h"
+#include "module.h"
+
 
 #define DEFAULT_CONFIG_FILE_PATH "/etc/openbalance/openbalance.conf"
 

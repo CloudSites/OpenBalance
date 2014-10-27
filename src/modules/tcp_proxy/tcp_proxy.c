@@ -90,7 +90,7 @@ handler_response tcp_proxy_startup(void *config, uv_loop_t *master_loop)
 	bnl_data->accept_cb = accept_cb;
 
 	// Put it all in motion
-	resolve_address(master_loop, "tcp://127.0.0.1:6380", resolve_cb);
+	resolve_address(master_loop, cfg->listen_addr, resolve_cb);
 
 	return MOD_OK;
 }
