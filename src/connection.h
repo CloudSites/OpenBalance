@@ -24,7 +24,7 @@ struct resolve_callback
 {
 	char *service;
 	char *node;
-	void (*callback)(uv_getaddrinfo_t *, struct addrinfo *);
+	void (*callback)(resolve_callback *, uv_loop_t *, struct addrinfo *);
 	void *data;
 	uv_loop_t *loop;
 };
@@ -38,6 +38,8 @@ struct upstream_connection
 struct proxy_config
 {
 	struct sockaddr_in *upstream_sockaddr;
+	uv_loop_t *loop;
+	uv_stream_t *listener;
 };
 
 struct proxy_client
@@ -52,7 +54,6 @@ struct proxy_client
 
 struct bind_and_listen_data
 {
-	uv_tcp_t *listener;
 	int backlog_size;
 	accept_callback* accept_cb;
 };
@@ -73,7 +74,9 @@ int resolve_address(uv_loop_t *loop, char *address,
                     resolve_callback *callback);
 void resolve_address_cb(uv_getaddrinfo_t *req, int status,
                         struct addrinfo *res);
-void bind_on_and_listen(uv_getaddrinfo_t *req, struct addrinfo *res);
+void bind_on_and_listen(resolve_callback *callback, uv_loop_t *loop,
+                        struct addrinfo *res);
+
 
 // Proxy client related functions
 void proxy_accept_client(uv_stream_t *server, int status);

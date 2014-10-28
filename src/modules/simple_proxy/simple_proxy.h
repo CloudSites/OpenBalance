@@ -21,7 +21,6 @@ struct simple_proxy_config
 	char *upstream_host;
 	int upstream_port;
 	int backlog_size;
-	uv_tcp_t *listener;
 	accept_callback *accept_cb;
 	proxy_config *proxy_settings;
 };

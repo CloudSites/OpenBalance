@@ -19,7 +19,6 @@ handler_response simple_proxy_configure(json_t* config, void **conf_struct)
 	module_config->accept_cb = malloc(sizeof(*module_config->accept_cb));
 	module_config->accept_cb->callback = proxy_new_client;
 	module_config->proxy_settings = malloc(sizeof(*module_config->proxy_settings));
-	module_config->listener = calloc(1, sizeof(*module_config->listener));
 
 	module_config->listen_addr = get_config_string(config, "listen_addr",
 	                                               "tcp://localhost:8080",
@@ -61,6 +60,7 @@ handler_response simple_proxy_startup(void *config, uv_loop_t *master_loop)
 	log_message(LOG_INFO, "simple_proxy starting!\n");
 
 	// Resolve upstream address
+	proxy_cfg->loop = master_loop;
 	proxy_cfg->upstream_sockaddr = malloc(sizeof(*proxy_cfg->upstream_sockaddr));
 	ret = uv_ip4_addr(cfg->upstream_host, cfg->upstream_port,
 	                  proxy_cfg->upstream_sockaddr);
@@ -78,7 +78,6 @@ handler_response simple_proxy_startup(void *config, uv_loop_t *master_loop)
 	// Setup bind and listen parameters
 	bnl_data = malloc(sizeof(*bnl_data));
 	bnl_data->backlog_size = cfg->backlog_size;
-	bnl_data->listener = cfg->listener;
 	resolve_cb->data = bnl_data;
 
 	// Setup connection acceptor callback
@@ -96,22 +95,22 @@ handler_response simple_proxy_startup(void *config, uv_loop_t *master_loop)
 handler_response simple_proxy_cleanup(void *config)
 {
 	simple_proxy_config *module_config = config;
-	uv_loop_t *main_loop = module_config->listener->loop;
+	uv_loop_t *main_loop = module_config->proxy_settings->loop;
 
 	log_message(LOG_INFO, "Cleaning up simple_proxy\n");
 
 	// Free handles from configuration structure
 	free(module_config->listen_addr);
 	free(module_config->upstream_host);
-	uv_close((uv_handle_t*)module_config->listener, NULL);
+	uv_close((uv_handle_t*)module_config->proxy_settings->listener, NULL);
 
 	// Drain the loop
 	while(uv_run(main_loop, UV_RUN_NOWAIT));
 
 	// Free remainder of configuration structure
 	free(module_config->proxy_settings->upstream_sockaddr);
+	free(module_config->proxy_settings->listener);
 	free(module_config->proxy_settings);
-	free(module_config->listener);
 	if(module_config->accept_cb)
 		free(module_config->accept_cb);
 	free(module_config);

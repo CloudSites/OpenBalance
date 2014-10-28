@@ -112,8 +112,16 @@ int resolve_address(uv_loop_t *loop, char *address, resolve_callback *callback)
 	}
 	else if(!strncasecmp("unix://", address, 7))
 	{
+		node_start = address + 7;
+		nodelen = strlen(node_start);
 		// TODO actual unix socket support
-		printf("unix socket support soon\n");
+		callback->node = malloc(nodelen + 1);
+		memcpy(callback->node, node_start, nodelen);
+		callback->node[nodelen] = '\0';
+
+		callback->callback(callback, loop, NULL);
+		free(callback->node);
+		free(callback);
 	}
 	else
 	{
@@ -137,49 +145,73 @@ void resolve_address_cb(uv_getaddrinfo_t *req, int status,
 		return;
 	}
 
-	callback->callback(req, res);
+	callback->callback(callback, req->loop, res);
 	free(callback->service);
 	free(callback->node);
 	free(callback);
+	free(req);
+	uv_freeaddrinfo(res);
 }
 
 
-void bind_on_and_listen(uv_getaddrinfo_t *req, struct addrinfo *res)
+void bind_on_and_listen(resolve_callback *callback, uv_loop_t *loop,
+                        struct addrinfo *res)
 {
 	int ret;
-	resolve_callback *callback = req->data;
 	bind_and_listen_data *data = callback->data;
+	proxy_config *proxy_cfg = data->accept_cb->data;
 
-	// Initialize listening tcp socket
-	ret = uv_tcp_init(req->loop, data->listener);
-	if(ret)
+	// If res is not NULL this is a TCP socket
+	if(res)
 	{
-		log_message(LOG_ERROR, "Failed to initialize tcp socket: %s\n",
-		            uv_err_name(ret));
-		return;
-	}
+		// Initialize listening tcp socket
+		proxy_cfg->listener = calloc(1, sizeof(uv_tcp_t));
+		ret = uv_tcp_init(loop, (uv_tcp_t*)proxy_cfg->listener);
+		if(ret)
+		{
+			log_message(LOG_ERROR, "Failed to initialize tcp socket: %s\n",
+				        uv_err_name(ret));
+			return;
+		}
 
-	// Bind address
-	ret = uv_tcp_bind(data->listener, res->ai_addr, 0);
-	if(ret)
+		// Bind address
+		ret = uv_tcp_bind((uv_tcp_t*)proxy_cfg->listener, res->ai_addr, 0);
+		if(ret)
+		{
+			log_message(LOG_ERROR, "Failed to bind: %s\n", uv_err_name(ret));
+			return;
+		}
+	}
+	else
 	{
-		log_message(LOG_ERROR, "Failed to bind: %s\n", uv_err_name(ret));
-		return;
-	}
+		// Initialize listening UNIX/PIPE otherwise
+		proxy_cfg->listener = calloc(1, sizeof(uv_pipe_t));
+		ret = uv_pipe_init(loop, (uv_pipe_t*)proxy_cfg->listener, 1);
+		if(ret)
+		{
+			log_message(LOG_ERROR, "Failed to initialize tcp socket: %s\n",
+				        uv_err_name(ret));
+			return;
+		}
 
-	// Free address assets
-	uv_freeaddrinfo(res);
+		// Bind address
+		ret = uv_pipe_bind((uv_pipe_t*)proxy_cfg->listener, callback->node);
+		if(ret)
+		{
+			log_message(LOG_ERROR, "Failed to bind: %s\n", uv_err_name(ret));
+			return;
+		}
+	}
 
 	// Begin listening
-	data->listener->data = data->accept_cb;
-	ret = uv_listen((uv_stream_t*)data->listener, data->backlog_size,
+	proxy_cfg->listener->data = data->accept_cb;
+	ret = uv_listen(proxy_cfg->listener, data->backlog_size,
 	                proxy_accept_client);
 	if(ret)
 	{
 		log_message(LOG_ERROR, "Listen error: %s\n", uv_err_name(ret));
 		return;
 	}
-	free(req);
 	free(data);
 }
 
@@ -315,7 +347,7 @@ void proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 		uv_close((uv_handle_t*)inbound, free_handle);
 		uv_close((uv_handle_t*)client->upstream, free_handle_and_client);
 
-		uv_stop(inbound->loop); // FOR TESTING
+		//uv_stop(inbound->loop); // FOR TESTING
 		return;
 	}
 	else if(readlen == 0)
