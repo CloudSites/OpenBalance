@@ -17,7 +17,7 @@ typedef struct proxy_config proxy_config;
 struct accept_callback
 {
 	void (*callback)(proxy_client*, uv_stream_t *);
-	void *data;
+	void *config;
 };
 
 struct resolve_callback
@@ -40,6 +40,8 @@ struct proxy_config
 	struct sockaddr_in *upstream_sockaddr;
 	uv_loop_t *loop;
 	uv_stream_t *listener;
+	void (*client_read_event)(uv_stream_t *, uv_stream_t *, char *, ssize_t);
+	void (*upstream_read_event)(uv_stream_t *, uv_stream_t *, char *, ssize_t);
 };
 
 struct proxy_client
@@ -82,9 +84,10 @@ void bind_on_and_listen(resolve_callback *callback, uv_loop_t *loop,
 void proxy_accept_client(uv_stream_t *server, int status);
 void proxy_new_client(proxy_client *new, uv_stream_t *listener);
 void proxy_new_upstream(uv_connect_t* conn, int status);
-
 void proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
                        const uv_buf_t *buffer);
+void proxy_stream_relay(uv_stream_t *client, uv_stream_t *upstream,
+                        char *buffer, ssize_t buflen);
 void proxy_upstream_read(uv_stream_t *inbound, ssize_t readlen,
                          const uv_buf_t *buffer);
 

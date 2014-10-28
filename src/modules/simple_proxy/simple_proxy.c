@@ -19,6 +19,8 @@ handler_response simple_proxy_configure(json_t* config, void **conf_struct)
 	module_config->accept_cb = malloc(sizeof(*module_config->accept_cb));
 	module_config->accept_cb->callback = proxy_new_client;
 	module_config->proxy_settings = malloc(sizeof(*module_config->proxy_settings));
+	module_config->proxy_settings->client_read_event = proxy_stream_relay;
+	module_config->proxy_settings->upstream_read_event = proxy_stream_relay;
 
 	module_config->listen_addr = get_config_string(config, "listen_addr",
 	                                               "tcp://localhost:8080",

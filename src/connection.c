@@ -159,7 +159,7 @@ void bind_on_and_listen(resolve_callback *callback, uv_loop_t *loop,
 {
 	int ret;
 	bind_and_listen_data *data = callback->data;
-	proxy_config *proxy_cfg = data->accept_cb->data;
+	proxy_config *proxy_cfg = data->accept_cb->config;
 
 	// If res is not NULL this is a TCP socket
 	if(res)
@@ -233,10 +233,10 @@ void proxy_accept_client(uv_stream_t *listener, int status)
 	// Allocate our client structure
 	new = malloc(sizeof(*new));
 
-	// Set reference to listener stream and data pointer
+	// Set reference to listener stream, config and data pointer
 	new->server = listener;
 	callback = listener->data;
-	new->data = callback->data;
+	new->proxy_settings = callback->config;
 
 	// Initialize downstream connection
 	new->downstream = malloc(sizeof(*new->downstream));
@@ -264,7 +264,7 @@ void proxy_accept_client(uv_stream_t *listener, int status)
 void proxy_new_client(proxy_client *new, uv_stream_t *listener)
 {
 	int ret;
-	proxy_config *config = new->data;
+	proxy_config *config = new->proxy_settings;
 
 	new->connection = malloc(sizeof(*new->connection));
 	new->upstream = malloc(sizeof(*new->upstream));
@@ -329,9 +329,8 @@ void proxy_new_upstream(uv_connect_t* conn, int status)
 void proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
                        const uv_buf_t *buffer)
 {
-	uv_buf_t *response;
-	uv_write_t *req;
 	proxy_client *client = inbound->data;
+	proxy_config *config = client->proxy_settings;
 
 	log_message(LOG_DEBUG, "Client read event\n");
 
@@ -357,16 +356,27 @@ void proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
 	}
 	else
 	{
-		response = malloc(sizeof(*response));
-		response->base = buffer->base;
-		response->len = readlen;
-
-		req = calloc(1, sizeof(*req));
-		req->data = response;
-		// Send to associated upstream connection
-		uv_write(req, (uv_stream_t *)client->upstream, response, 1,
-		         free_request);
+		// Normal, good read event, pass it down to the associated hook
+		config->client_read_event(inbound, (uv_stream_t*)client->upstream,
+		                          buffer->base, readlen);
 	}
+}
+
+void proxy_stream_relay(uv_stream_t *inbound, uv_stream_t *outbound,
+                        char *buffer, ssize_t buflen)
+{
+	uv_buf_t *response;
+	uv_write_t *req;
+
+	response = malloc(sizeof(*response));
+	response->base = buffer;
+	response->len = buflen;
+
+	req = calloc(1, sizeof(*req));
+	req->data = response;
+
+	// Send to buffer from inbound handle to outbound handle
+	uv_write(req, outbound, response, 1, free_request);
 }
 
 
