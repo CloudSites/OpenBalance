@@ -97,7 +97,7 @@ int resolve_address(uv_loop_t *loop, char *address, resolve_callback *callback)
 		memcpy(callback->node, node_start, nodelen);
 		callback->node[nodelen] = '\0';
 
-		// Determine lenght of service name and allocate
+		// Determine length of service name and allocate
 		service_start = node_end + 1;
 		servicelen = strlen(service_start);
 		callback->service = malloc(servicelen + 1);
@@ -184,73 +184,6 @@ void bind_on_and_listen(uv_getaddrinfo_t *req, struct addrinfo *res)
 }
 
 
-/*int init_proxy_listen_socket(char *address)
-{
-	int ret;
-	struct sockaddr_in bind_addr;
-	tcp_proxy_config *cfg = config;
-	accept_callback *callback;
-
-	log_message(LOG_INFO, "tcp proxy starting!\n");
-
-	// Resolve listen address
-	ret = uv_ip4_addr(cfg->listen_host, cfg->listen_port, &bind_addr);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Listen socket resolution error: %s\n",
-		            uv_err_name(ret));
-		return MOD_ERROR;
-	}
-
-	// Resolve upstream address
-	cfg->upstream_addr = malloc(sizeof(*cfg->upstream_addr));
-	ret = uv_ip4_addr(cfg->upstream_host, cfg->upstream_port,
-	                  cfg->upstream_addr);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Upstream socket resolution error: %s\n",
-		            uv_err_name(ret));
-		return MOD_ERROR;
-	}
-
-	// Initialize listening tcp socket
-	ret = uv_tcp_init(master_loop, cfg->listener);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Failed to initialize tcp socket: %s\n",
-		            uv_err_name(ret));
-		return MOD_ERROR;
-	}
-
-	// Bind address
-	ret = uv_tcp_bind(cfg->listener, (struct sockaddr*)&bind_addr, 0);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Failed to bind on %s:%d: %s\n",
-		            cfg->listen_host, cfg->listen_port,uv_err_name(ret));
-		return MOD_ERROR;
-	}
-
-	// Allocate new client callback
-	callback = malloc(sizeof(*callback));
-	callback->callback = tcp_proxy_new_client;
-	callback->data = cfg;
-	cfg->accept_cb = callback;
-	cfg->listener->data = callback;
-
-	// Begin listening
-	ret = uv_listen((uv_stream_t*)cfg->listener, cfg->backlog_size,
-	                proxy_accept_client);
-	if(ret)
-	{
-		log_message(LOG_ERROR, "Listen error: %s\n", uv_err_name(ret));
-		return MOD_ERROR;
-	}
-
-	return MOD_OK;
-}*/
-
-
 void proxy_accept_client(uv_stream_t *listener, int status)
 {
 	int ret;
@@ -293,4 +226,155 @@ void proxy_accept_client(uv_stream_t *listener, int status)
 
 	// Run callback
 	callback->callback(new, listener);
+}
+
+
+void proxy_new_client(proxy_client *new, uv_stream_t *listener)
+{
+	int ret;
+	proxy_config *config = new->data;
+
+	new->connection = malloc(sizeof(*new->connection));
+	new->upstream = malloc(sizeof(*new->upstream));
+	ret = uv_tcp_init(listener->loop, new->upstream);
+	if(ret)
+	{
+		log_message(LOG_ERROR, "Error initializing upstream tcp socket\n");
+		return;
+	}
+
+	new->connection->data = new;
+	new->upstream->data = new;
+	ret = uv_tcp_connect(new->connection, new->upstream,
+	                     (struct sockaddr *)config->upstream_sockaddr,
+	                     proxy_new_upstream);
+	if(ret)
+	{
+		log_message(LOG_ERROR, "Upstream tcp connection error\n");
+		return;
+	}
+}
+
+
+void proxy_new_upstream(uv_connect_t* conn, int status)
+{
+	int ret;
+	proxy_client *client = conn->data;
+	free(client->connection);
+
+	log_message(LOG_INFO, "New upstream\n");
+
+	if(status)
+	{
+		log_message(LOG_ERROR, "Failed handling new upstream connection\n");
+		// Accept and shut down the connection
+		uv_close((uv_handle_t*)client->downstream, free_handle);
+		// Cleanup the rest of the connection
+		uv_close((uv_handle_t*)client->upstream, free_handle);
+		free(client);
+		return;
+	}
+
+	// Set read event handlers
+	ret = uv_read_start((uv_stream_t*) client->downstream,
+	                    alloc_from_pool, proxy_client_read);
+	if(ret)
+	{
+		log_message(LOG_ERROR, "Failed to start client read handling\n");
+		return;
+	}
+
+	ret = uv_read_start((uv_stream_t*) client->upstream,
+	                    alloc_from_pool, proxy_upstream_read);
+	if(ret)
+	{
+		log_message(LOG_ERROR, "Failed to start upstream read handling\n");
+		return;
+	}
+}
+
+
+void proxy_client_read(uv_stream_t *inbound, ssize_t readlen,
+                       const uv_buf_t *buffer)
+{
+	uv_buf_t *response;
+	uv_write_t *req;
+	proxy_client *client = inbound->data;
+
+	log_message(LOG_DEBUG, "Client read event\n");
+
+	if(readlen < 0)
+	{
+		log_message(LOG_INFO, "Client disconnected\n");
+
+		// Free associated buffer and handle
+		if(buffer->base)
+		{
+			return_alloc_to_pool(buffer->base);
+		}
+		uv_close((uv_handle_t*)inbound, free_handle);
+		uv_close((uv_handle_t*)client->upstream, free_handle_and_client);
+
+		uv_stop(inbound->loop); // FOR TESTING
+		return;
+	}
+	else if(readlen == 0)
+	{
+		free(buffer->base);
+		return;
+	}
+	else
+	{
+		response = malloc(sizeof(*response));
+		response->base = buffer->base;
+		response->len = readlen;
+
+		req = calloc(1, sizeof(*req));
+		req->data = response;
+		// Send to associated upstream connection
+		uv_write(req, (uv_stream_t *)client->upstream, response, 1,
+		         free_request);
+	}
+}
+
+
+void proxy_upstream_read(uv_stream_t *outbound, ssize_t readlen,
+                         const uv_buf_t *buffer)
+{
+	uv_buf_t *response;
+	uv_write_t *req;
+	proxy_client *client = outbound->data;
+
+	if(readlen < 0)
+	{
+		log_message(LOG_DEBUG, "Upstream disconnected\n");
+		// Close client and upstream handles and free structures
+		uv_close((uv_handle_t*)outbound, free_handle);
+		if(client->downstream)
+			uv_close((uv_handle_t*)client->downstream, free_handle);
+		else
+			upstream_disconnected(NULL,//&(config->pool),
+			                      (uv_tcp_t*) outbound);
+		free(buffer->base);
+		free(client);
+		return;
+	}
+
+	response = malloc(sizeof(*response));
+	response->base = buffer->base;
+	response->len = readlen;
+
+	req = calloc(1, sizeof(*req));
+	req->data = response;
+	// Send to upstream connection
+	uv_write(req, (uv_stream_t *)client->downstream, response, 1,
+	         free_request);
+}
+
+
+void free_handle_and_client(uv_handle_t *handle)
+{
+	proxy_client *client = handle->data;
+	free(handle);
+	free(client);
 }
