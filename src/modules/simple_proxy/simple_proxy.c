@@ -84,7 +84,7 @@ handler_response simple_proxy_startup(void *config, uv_loop_t *master_loop)
 
 	// Setup connection acceptor callback
 	accept_cb = cfg->accept_cb;
-	accept_cb->data = proxy_cfg;
+	accept_cb->config = proxy_cfg;
 	bnl_data->accept_cb = accept_cb;
 
 	// Put it all in motion

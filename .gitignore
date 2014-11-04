@@ -3,3 +3,4 @@ obj/
 src/modules.c
 src/modules.h
 Makefile
+test/suite_*

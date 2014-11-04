@@ -8,13 +8,13 @@ OB_LIBS=-ljansson -luv -lzmq
 all: bin obj bin/openbalance
 
 clean:
-	@rm -rfv bin obj src/modules.c src/modules.h Makefile
+	@rm -rfv bin obj src/modules.c src/modules.h Makefile test/suite_*
 
 
 # Executable Targets
 bin/openbalance: obj/logging.o obj/main.o obj/config.o obj/module.o \
                  obj/modules.o obj/event.o obj/memory.o obj/connection.o \
-                 obj/master.o obj/worker.o
+                 obj/master.o obj/worker.o obj/buffer_chain.o
 	${CC} -o $@ $^ ${OB_LIBS}
 
 
@@ -33,6 +33,9 @@ obj/module.o: src/module.c src/module.h
 
 obj/memory.o: src/memory.c src/memory.h
 	${CC_OBJ} src/memory.c
+
+obj/buffer_chain.o: src/buffer_chain.c src/buffer_chain.h
+	${CC_OBJ} src/buffer_chain.c
 
 obj/connection.o: src/connection.c src/connection.h obj/master.o
 	${CC_OBJ} src/connection.c
@@ -56,4 +59,7 @@ bin:
 
 obj:
 	@mkdir -p obj/modules
+
+run_tests: obj bin bin/openbalance
+	cd test; make run_tests
 </%text>

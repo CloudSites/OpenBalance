@@ -45,6 +45,7 @@ void free_handle(uv_handle_t *handle)
 	free(handle);
 }
 
+
 void upstream_disconnected(upstream_connection **pool, uv_tcp_t* connection)
 {
 	upstream_connection *previous = NULL;
@@ -232,6 +233,7 @@ void proxy_accept_client(uv_stream_t *listener, int status)
 
 	// Allocate our client structure
 	new = malloc(sizeof(*new));
+	new->data = NULL;
 
 	// Set reference to listener stream, config and data pointer
 	new->server = listener;
@@ -380,37 +382,37 @@ void proxy_stream_relay(uv_stream_t *inbound, uv_stream_t *outbound,
 }
 
 
-void proxy_upstream_read(uv_stream_t *outbound, ssize_t readlen,
+void proxy_upstream_read(uv_stream_t *upstream, ssize_t readlen,
                          const uv_buf_t *buffer)
 {
-	uv_buf_t *response;
-	uv_write_t *req;
-	proxy_client *client = outbound->data;
+	proxy_client *client = upstream->data;
+	proxy_config *config = client->proxy_settings;
 
 	if(readlen < 0)
 	{
 		log_message(LOG_DEBUG, "Upstream disconnected\n");
 		// Close client and upstream handles and free structures
-		uv_close((uv_handle_t*)outbound, free_handle);
+		uv_close((uv_handle_t*)upstream, free_handle);
 		if(client->downstream)
 			uv_close((uv_handle_t*)client->downstream, free_handle);
 		else
 			upstream_disconnected(NULL,//&(config->pool),
-			                      (uv_tcp_t*) outbound);
+			                      (uv_tcp_t*)upstream);
 		free(buffer->base);
 		free(client);
 		return;
 	}
-
-	response = malloc(sizeof(*response));
-	response->base = buffer->base;
-	response->len = readlen;
-
-	req = calloc(1, sizeof(*req));
-	req->data = response;
-	// Send to upstream connection
-	uv_write(req, (uv_stream_t *)client->downstream, response, 1,
-	         free_request);
+	else if(readlen == 0)
+	{
+		free(buffer->base);
+		return;
+	}
+	else
+	{
+		// Normal, good read event, pass it down to the associated hook
+		config->upstream_read_event(upstream, (uv_stream_t*)client->downstream,
+		                            buffer->base, readlen);
+	}
 }
 
 
