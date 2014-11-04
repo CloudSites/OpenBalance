@@ -4,3 +4,4 @@ src/modules.c
 src/modules.h
 Makefile
 test/suite_*
+!test/Makefile
