@@ -1,10 +1,10 @@
 #include "buffer_chain.h"
 
 
-int bc_memcmp(void *ptr, buffer_chain *buffer, ssize_t size)
+int bc_memcmp(void *ptr, buffer_chain *buffer, size_t size)
 {
 	int ret_val;
-	ssize_t i = 0, buffer_i = buffer->offset;
+	size_t i = 0, buffer_i = buffer->offset;
 	buffer_chain *cur_link = buffer;
 	char *data = ptr;
 
@@ -47,16 +47,16 @@ int bc_strcasecmp(char *string1, buffer_chain *string2)
 }
 
 
-int bc_strncmp(char *string1, buffer_chain *string2, ssize_t size)
+int bc_strncmp(char *string1, buffer_chain *string2, size_t size)
 {
 	return bc_memcmp(string1, string2, size);
 }
 
 
-int bc_strncasecmp(char *string1, buffer_chain *string2, ssize_t size)
+int bc_strncasecmp(char *string1, buffer_chain *string2, size_t size)
 {
 	int ret_val;
-	ssize_t i = 0, buffer_i = string2->offset;
+	size_t i = 0, buffer_i = string2->offset;
 	char compare_1, compare_2;
 	buffer_chain *cur_link = string2;
 
@@ -99,7 +99,7 @@ buffer_chain* bc_memchr(buffer_chain *haystack, char needle)
 {
 	buffer_chain *ret_val;
 	buffer_chain *cur_link = haystack;
-	ssize_t i = haystack->offset;
+	size_t i = haystack->offset;
 
 	while(i < cur_link->len || cur_link->next)
 	{
@@ -133,11 +133,11 @@ buffer_chain* bc_memchr(buffer_chain *haystack, char needle)
 }
 
 
-void* bc_memcpy(void *dest, buffer_chain *src, ssize_t len)
+void* bc_memcpy(void *dest, buffer_chain *src, size_t len)
 {
 	buffer_chain *cur_link = src;
-	ssize_t buf_i = src->offset;
-	ssize_t index = 0;
+	size_t buf_i = src->offset;
+	size_t index = 0;
 	char *destination = dest;
 
 	while(index < len && (buf_i < cur_link->len - 1 || cur_link->next))
@@ -167,10 +167,10 @@ void* bc_memcpy(void *dest, buffer_chain *src, ssize_t len)
 }
 
 
-char* bc_getdelim(buffer_chain *buffer, char delim, ssize_t *len)
+char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len)
 {
 	buffer_chain *delimiter, *i;
-	ssize_t length = 0;
+	size_t length = 0;
 	char *ret_val;
 
 	delimiter = bc_memchr(buffer, delim);
@@ -193,4 +193,10 @@ char* bc_getdelim(buffer_chain *buffer, char delim, ssize_t *len)
 	*len = length;
 
 	return ret_val;
+}
+
+
+char *bc_getline(buffer_chain *buffer, size_t *len)
+{
+	return bc_getdelim(buffer, '\n', len);
 }

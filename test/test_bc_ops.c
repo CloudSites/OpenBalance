@@ -89,7 +89,7 @@ TEST_SUITE("bufferchain operations")
 		assert_ptr_equality("first byte matches buffer", match->buffer,
 		                    compare_chain1.buffer);
 		assert_size_equality("no offset for first byte match", match->offset,
-		                     (ssize_t)0);
+		                     (size_t)0);
 		free(match);
 
 		match = bc_memchr(&compare_chain1, 'x');
@@ -100,13 +100,13 @@ TEST_SUITE("bufferchain operations")
 		assert_ptr_equality("second chain matched", match->buffer,
 		                    compare_chain2_link2.buffer);
 		assert_size_equality("offset in new chain starts at 0", match->offset,
-		                     (ssize_t)0);
+		                     (size_t)0);
 
 		match2 = bc_memchr(match, 't');
 		assert_ptr_equality("can match from other matches", match2->buffer,
 		                    compare_chain2_link2.buffer);
 		assert_size_equality("offset for this match is 1", match2->offset,
-		                     (ssize_t)1);
+		                     (size_t)1);
 		free(match);
 		free(match2);
 
@@ -114,25 +114,25 @@ TEST_SUITE("bufferchain operations")
 
 	TEST_CASE("bc_getdelim")
 
-		ssize_t len;
+		size_t len;
 		char *getstring;
 		getstring = bc_getdelim(&search_chain1, 'x', &len);
 		assert_ptr_equality("Null returned for delim not found", getstring,
 		                    NULL);
-		assert_size_equality("len 0 for match not found", len, (ssize_t)0);
+		assert_size_equality("len 0 for match not found", len, (size_t)0);
 
 		getstring = bc_getdelim(&search_chain1, '\n', &len);
 		assert_int_equality("chain1 matches",
 		                    strcmp("where dat newline?\n", getstring), 0);
 		assert_size_equality("length for first match is 20",
-		                     len, (ssize_t)20);
+		                     len, (size_t)20);
 		free(getstring);
 		
 		getstring = bc_getdelim(&search_chain2, '\n', &len);
 		assert_int_equality("chain1 matches",
 		                    strcmp("where does it end?\n", getstring), 0);
 		assert_size_equality("length for first match is 20",
-		                     len, (ssize_t)19);
+		                     len, (size_t)19);
 		free(getstring);
 
 	TEST_CASE_END

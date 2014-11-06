@@ -24,13 +24,13 @@ struct buffer_chain
 };
 
 
-int bc_memcmp(void *ptr, buffer_chain *buffer, ssize_t size);
+int bc_memcmp(void *ptr, buffer_chain *buffer, size_t size);
 int bc_strcmp(char *string1, buffer_chain *string2);
 int bc_strcasecmp(char *string1, buffer_chain *string2);
-int bc_strncmp(char *string1, buffer_chain *string2, ssize_t size);
-int bc_strncasecmp(char *string1, buffer_chain *string2, ssize_t size);
+int bc_strncmp(char *string1, buffer_chain *string2, size_t size);
+int bc_strncasecmp(char *string1, buffer_chain *string2, size_t size);
 buffer_chain* bc_memchr(buffer_chain *haystack, char needle);
-void* bc_memcpy(void *dest, buffer_chain *src, ssize_t len);
-char* bc_getdelim(buffer_chain *buffer, char delim, ssize_t *len);
+void* bc_memcpy(void *dest, buffer_chain *src, size_t len);
+char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len);
 
 #endif
