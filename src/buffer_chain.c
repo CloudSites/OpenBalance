@@ -131,3 +131,66 @@ buffer_chain* bc_memchr(buffer_chain *haystack, char needle)
 
 	return NULL;
 }
+
+
+void* bc_memcpy(void *dest, buffer_chain *src, ssize_t len)
+{
+	buffer_chain *cur_link = src;
+	ssize_t buf_i = src->offset;
+	ssize_t index = 0;
+	char *destination = dest;
+
+	while(index < len && (buf_i < cur_link->len - 1 || cur_link->next))
+	{
+		destination[index] = cur_link->buffer[buf_i];
+		index++;
+
+		if(buf_i == cur_link->len - 1)
+		{
+			if(cur_link->next)
+			{
+				buf_i = 0;
+				cur_link = cur_link->next;
+			}
+			else
+			{
+				return dest;
+			}
+		}
+		else
+		{
+			buf_i++;
+		}
+	}
+	
+	return dest;
+}
+
+
+char* bc_getdelim(buffer_chain *buffer, char delim, ssize_t *len)
+{
+	buffer_chain *delimiter, *i;
+	ssize_t length = 0;
+	char *ret_val;
+
+	delimiter = bc_memchr(buffer, delim);
+	if(!delimiter)
+	{
+		*len = 0;
+		return NULL;
+	}
+
+	i = buffer;
+	while(i->buffer != delimiter->buffer)
+	{
+		length += i->len - i->offset;
+		i = i->next;
+	}
+	length += i->len - i->offset;
+
+	ret_val = malloc(length);
+	bc_memcpy(ret_val, buffer, length);
+	*len = length;
+
+	return ret_val;
+}

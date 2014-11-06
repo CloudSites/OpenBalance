@@ -10,6 +10,9 @@ TEST_SUITE("bufferchain operations")
 	buffer_chain compare_chain3 = {"test\x00weee", 9, 0, NULL, STATIC};
 	buffer_chain compare_chain4 = {"TEST", 5, 0, NULL, STATIC};
 	buffer_chain compare_offset = {"xxxtest", 7, 3, NULL, STATIC};
+	buffer_chain search_chain1 = {"where dat newline?\n", 20, 0, NULL, STATIC};
+	buffer_chain search_chain2_link2 = {" it end?\n", 9, 0, NULL, STATIC};
+	buffer_chain search_chain2 = {"xxxwhere does", 13, 3, &search_chain2_link2, STATIC};
 
 	TEST_CASE("bc_strncmp checks")
 
@@ -106,6 +109,31 @@ TEST_SUITE("bufferchain operations")
 		                     (ssize_t)1);
 		free(match);
 		free(match2);
+
+	TEST_CASE_END
+
+	TEST_CASE("bc_getdelim")
+
+		ssize_t len;
+		char *getstring;
+		getstring = bc_getdelim(&search_chain1, 'x', &len);
+		assert_ptr_equality("Null returned for delim not found", getstring,
+		                    NULL);
+		assert_size_equality("len 0 for match not found", len, (ssize_t)0);
+
+		getstring = bc_getdelim(&search_chain1, '\n', &len);
+		assert_int_equality("chain1 matches",
+		                    strcmp("where dat newline?\n", getstring), 0);
+		assert_size_equality("length for first match is 20",
+		                     len, (ssize_t)20);
+		free(getstring);
+		
+		getstring = bc_getdelim(&search_chain2, '\n', &len);
+		assert_int_equality("chain1 matches",
+		                    strcmp("where does it end?\n", getstring), 0);
+		assert_size_equality("length for first match is 20",
+		                     len, (ssize_t)19);
+		free(getstring);
 
 	TEST_CASE_END
 

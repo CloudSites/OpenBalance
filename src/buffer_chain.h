@@ -30,5 +30,7 @@ int bc_strcasecmp(char *string1, buffer_chain *string2);
 int bc_strncmp(char *string1, buffer_chain *string2, ssize_t size);
 int bc_strncasecmp(char *string1, buffer_chain *string2, ssize_t size);
 buffer_chain* bc_memchr(buffer_chain *haystack, char needle);
+void* bc_memcpy(void *dest, buffer_chain *src, ssize_t len);
+char* bc_getdelim(buffer_chain *buffer, char delim, ssize_t *len);
 
 #endif
