@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 typedef enum
 {
@@ -28,5 +29,6 @@ int bc_strcmp(char *string1, buffer_chain *string2);
 int bc_strcasecmp(char *string1, buffer_chain *string2);
 int bc_strncmp(char *string1, buffer_chain *string2, ssize_t size);
 int bc_strncasecmp(char *string1, buffer_chain *string2, ssize_t size);
+buffer_chain* bc_memchr(buffer_chain *haystack, char needle);
 
 #endif

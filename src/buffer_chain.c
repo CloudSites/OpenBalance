@@ -93,3 +93,41 @@ int bc_strncasecmp(char *string1, buffer_chain *string2, ssize_t size)
 	}
 	return 0;
 }
+
+
+buffer_chain* bc_memchr(buffer_chain *haystack, char needle)
+{
+	buffer_chain *ret_val;
+	buffer_chain *cur_link = haystack;
+	ssize_t i = haystack->offset;
+
+	while(i < cur_link->len || cur_link->next)
+	{
+		if(cur_link->buffer[i] == needle)
+		{
+			ret_val = malloc(sizeof(*ret_val));
+			memcpy(ret_val, cur_link, sizeof(*ret_val));
+			ret_val->offset = i;
+			return ret_val;
+		}
+
+		if(i == cur_link->len - 1)
+		{
+			if(cur_link->next)
+			{
+				i = 0;
+				cur_link = cur_link->next;
+			}
+			else
+			{
+				return NULL;
+			}
+		}
+		else
+		{
+			i++;
+		}
+	}
+
+	return NULL;
+}

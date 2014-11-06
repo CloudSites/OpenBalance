@@ -76,5 +76,20 @@ if(something != asserted_value) \
 	testsuite_status = 1; \
 }
 
+#define assert_size_equality(assert_comment, something, asserted_value) assertion_count++; \
+if(something != asserted_value) \
+{ \
+	printf("Assertion failed: %s\n'" #something "' is not %zd. Is %zd\n", \
+	       assert_comment, asserted_value, something); \
+	testsuite_status = 1; \
+}
+
+#define assert_ptr_equality(assert_comment, something, asserted_value) assertion_count++; \
+if(something != asserted_value) \
+{ \
+	printf("Assertion failed: %s\n'" #something "' is not %p. Is %p\n", \
+	       assert_comment, asserted_value, something); \
+	testsuite_status = 1; \
+}
 
 #endif
