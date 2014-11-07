@@ -8,50 +8,43 @@
 	int testsuite_status = 0; \
 	int testcase_count = 0; \
 	int assertion_count = 0; \
-	printf("/=========================================================\\\n"); \
-	printf("|  Starting test suite %s\n", name); \
-	printf("+=========================================================+\n");
+	int format_offset = 0;\
+	printf(" /============================================================================\\\n"); \
+	printf(" | Starting test suite: %-53.53s |\n", name); \
+	printf(" +============================================================================+\n\n");
 
 #define TEST_SUITE_END \
+	printf(" +============================================================================+\n"); \
 	if(!assertion_count) \
 	{ \
-		printf("| No assertions made in tests ran ");  \
+		printf(" | No assertions made in tests ran                                            |\n");  \
 	} \
 	else if(testsuite_status) \
 	{ \
-		printf("| Failures present in test suite "); \
+		printf(" | Failures present in test suite                                             |\n"); \
 	} \
 	else \
 	{ \
-		printf("| All tests passed "); \
+		printf(" | All tests passed                                                           |\n"); \
 	} \
-	if(assertion_count == 1) \
+	printf(" | %d %s ran from %d %s%n", assertion_count, (assertion_count == 1) ? "assertion" : "assertions", testcase_count, (testcase_count == 1) ? "case" : "cases", &format_offset); \
+	while(format_offset++ < 78) \
 	{ \
-		printf("(1 assertion ran from "); \
+		printf(" ");\
 	} \
-	else \
-	{ \
-		printf("(%d assertions ran from ", assertion_count);\
-	} \
-	if(testcase_count == 1) \
-	{ \
-		printf("1 case)\n"); \
-	} \
-	else \
-	{ \
-		printf("%d cases)\n", testcase_count);\
-	} \
-	printf("\\=========================================================/\n"); \
+	printf("|\n \\============================================================================/\n"); \
 	return testsuite_status; \
 }
 
 #define TEST_CASE(name) testcase_count++; \
-	printf(" /-------------------------------------------------------\\\n"); \
-	printf(" | Starting test case %s\n", name); \
-	printf(" +-------------------------------------------------------+\n");
+	printf("  /--------------------------------------------------------------------------\\\n"); \
+	printf("  | Starting test case: %-52.52s |\n", name); \
+	printf("  +--------------------------------------------------------------------------+\n");
 
 #define TEST_CASE_END \
-	printf(" \\-------------------------------------------------------/\n");
+	printf("  +--------------------------------------------------------------------------+\n"); \
+	printf("  | done.                                                                    |\n"); \
+	printf("  \\--------------------------------------------------------------------------/\n\n");
 
 #define assert_true(assert_comment, something) assertion_count++; \
 if(!something) \

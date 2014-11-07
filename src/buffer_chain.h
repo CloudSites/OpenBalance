@@ -32,5 +32,6 @@ int bc_strncasecmp(char *string1, buffer_chain *string2, size_t size);
 buffer_chain* bc_memchr(buffer_chain *haystack, char needle);
 void* bc_memcpy(void *dest, buffer_chain *src, size_t len);
 char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len);
+char *bc_getline(buffer_chain *buffer, size_t *len);
 
 #endif
