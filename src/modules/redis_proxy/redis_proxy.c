@@ -260,6 +260,7 @@ void read_request(uv_stream_t *client, uv_stream_t *server, char *buffer,
 					printf("yay! 1 solid command\n");
 					client_request->buffer = malloc(sizeof(*client_request->buffer));
 					client_request->buffer->buffer = buffer;
+					client_request->buffer->offset = 0;
 					client_request->buffer->len = len;
 					client_request->buffer->next = NULL;
 					client_request->buffer->free_type = POOLED;
@@ -325,6 +326,10 @@ void read_request(uv_stream_t *client, uv_stream_t *server, char *buffer,
 void parse_request(redis_request *request)
 {
 	int command;
+	size_t len;
+	char *command_string;
+	uv_buf_t *response;
+	uv_write_t *req;
 
 	if(request->type == INLINE_REQUEST)
 	{
@@ -344,8 +349,25 @@ void parse_request(redis_request *request)
 		}
 		else
 		{
-			printf("bc_strchr: %p\n", bc_memchr(request->buffer, ' '));
-			printf("unknown request type\n");
+			command_string = bc_getdelim(request->buffer, ' ', &len);
+			if(!command_string)
+				command_string = bc_getdelim(request->buffer, '\r', &len);
+			command_string[len - 1] = '\0';
+			len -= 1;
+
+			response = malloc(sizeof(*response) * 3);
+			response[0].base = "-ERR unknown command '";
+			response[0].len = 22;
+			response[1].base = command_string;
+			response[1].len = len;
+			response[2].base = "'\r\n";
+			response[2].len = 3;
+
+			req = calloc(1, sizeof(*req));
+			req->data = response;
+
+			// Send to buffer from inbound handle to outbound handle
+			uv_write(req, request->client, response, 3, NULL);
 		}
 	}
 	else

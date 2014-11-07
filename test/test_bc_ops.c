@@ -10,9 +10,9 @@ TEST_SUITE("bufferchain operations")
 	buffer_chain compare_chain3 = {"test\x00weee", 9, 0, NULL, STATIC};
 	buffer_chain compare_chain4 = {"TEST", 5, 0, NULL, STATIC};
 	buffer_chain compare_offset = {"xxxtest", 7, 3, NULL, STATIC};
-	buffer_chain search_chain1 = {"where dat newline?\n", 20, 0, NULL, STATIC};
-	buffer_chain search_chain2_link2 = {" it end?\n", 9, 0, NULL, STATIC};
-	buffer_chain search_chain2 = {"xxxwhere does", 13, 3, &search_chain2_link2, STATIC};
+	buffer_chain search_chain1 = {"abcdefgh\n", 9, 0, NULL, STATIC};
+	buffer_chain search_chain2_link2 = {"ghijk\n", 6, 0, NULL, STATIC};
+	buffer_chain search_chain2 = {"xxxabcdef", 9, 3, &search_chain2_link2, STATIC};
 
 	TEST_CASE("bc_strncmp checks")
 
@@ -123,16 +123,30 @@ TEST_SUITE("bufferchain operations")
 
 		getstring = bc_getdelim(&search_chain1, '\n', &len);
 		assert_int_equality("chain1 matches",
-		                    strcmp("where dat newline?\n", getstring), 0);
-		assert_size_equality("length for first match is 20",
-		                     len, (size_t)20);
+		                    strncmp("abcdefgh\n", getstring, 9), 0);
+		assert_size_equality("length for first match is 9",
+		                     len, (size_t)9);
 		free(getstring);
-		
+
+		getstring = bc_getdelim(&search_chain1, 'd', &len);
+		assert_int_equality("chain1 matches mid delim",
+		                    strncmp("abcd", getstring, 4), 0);
+		assert_size_equality("length for this match is 4",
+		                     len, (size_t)4);
+		free(getstring);
+
 		getstring = bc_getdelim(&search_chain2, '\n', &len);
-		assert_int_equality("chain1 matches",
-		                    strcmp("where does it end?\n", getstring), 0);
-		assert_size_equality("length for first match is 20",
-		                     len, (size_t)19);
+		assert_int_equality("chain2 full match matches",
+		                    strncmp("abcdefghijk\n", getstring, 12), 0);
+		assert_size_equality("length for second match is 12",
+		                     len, (size_t)12);
+		free(getstring);
+
+		getstring = bc_getdelim(&search_chain2, 'f', &len);
+		assert_int_equality("chain2 matches mid delim",
+		                    strcmp("abcdef", getstring), 0);
+		assert_size_equality("length for mid chain2 match is 8",
+		                     len, (size_t)6);
 		free(getstring);
 
 	TEST_CASE_END

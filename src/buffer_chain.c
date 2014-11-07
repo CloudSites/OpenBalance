@@ -140,7 +140,7 @@ void* bc_memcpy(void *dest, buffer_chain *src, size_t len)
 	size_t index = 0;
 	char *destination = dest;
 
-	while(index < len && (buf_i < cur_link->len - 1 || cur_link->next))
+	while(index < len && (buf_i < cur_link->len || cur_link->next))
 	{
 		destination[index] = cur_link->buffer[buf_i];
 		index++;
@@ -170,7 +170,7 @@ void* bc_memcpy(void *dest, buffer_chain *src, size_t len)
 char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len)
 {
 	buffer_chain *delimiter, *i;
-	size_t length = 0;
+	size_t length = buffer->offset * -1;
 	char *ret_val;
 
 	delimiter = bc_memchr(buffer, delim);
@@ -183,10 +183,12 @@ char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len)
 	i = buffer;
 	while(i->buffer != delimiter->buffer)
 	{
-		length += i->len - i->offset;
+		length += i->len;
 		i = i->next;
+
 	}
-	length += i->len - i->offset;
+
+	length += delimiter->len - (delimiter->len - delimiter->offset) + 1;
 
 	ret_val = malloc(length);
 	bc_memcpy(ret_val, buffer, length);
@@ -196,7 +198,7 @@ char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len)
 }
 
 
-char *bc_getline(buffer_chain *buffer, size_t *len)
+char* bc_getline(buffer_chain *buffer, size_t *len)
 {
 	return bc_getdelim(buffer, '\n', len);
 }
