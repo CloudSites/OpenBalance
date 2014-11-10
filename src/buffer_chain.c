@@ -238,7 +238,6 @@ char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len)
 	{
 		length += i->len;
 		i = i->next;
-
 	}
 
 	length += delimiter->len - (delimiter->len - delimiter->offset) + 1;
@@ -254,4 +253,19 @@ char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len)
 char* bc_getline(buffer_chain *buffer, size_t *len)
 {
 	return bc_getdelim(buffer, '\n', len);
+}
+
+
+size_t bc_strlen(buffer_chain *buffer)
+{
+	size_t len = 0;
+
+	do
+	{
+		len += buffer->len - buffer->offset;
+		buffer = buffer->next;
+	}
+	while(buffer);
+
+	return len;
 }

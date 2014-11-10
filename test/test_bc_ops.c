@@ -209,4 +209,19 @@ TEST_SUITE("bufferchain operations")
 
 	TEST_CASE_END
 
+	TEST_CASE("bc_strlen checks")
+
+		size_t length;
+		length = bc_strlen(&compare_chain1);
+		assert_size_equality("size of this chain is 5", length, (size_t)5);
+
+		length = bc_strlen(&compare_chain2);
+		assert_size_equality("size of this chain is 4", length, (size_t)4);
+
+		length = bc_strlen(&compare_offset);
+		assert_size_equality("size of this offset chain is 4", length,
+		                     (size_t)4);
+
+	TEST_CASE_END
+
 TEST_SUITE_END
