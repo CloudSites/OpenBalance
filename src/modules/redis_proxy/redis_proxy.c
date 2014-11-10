@@ -1,7 +1,7 @@
 #include "redis_proxy.h"
 
 
-char *redis_command_strings[] = {"PING", "SET", "GET"};
+char *redis_command_strings[] = {"PING\r\n", "SET", "GET"};
 
 
 handler_response redis_proxy_configure(json_t* config, void **conf_struct)
@@ -282,53 +282,16 @@ void read_request(uv_stream_t *client, uv_stream_t *server, char *buffer,
 			printf("no support for cereal :(\n");
 		}
 	}
-
-	/*uv_buf_t *response;
-	uv_write_t *req;
-	
-	ssize_t newlen;
-
-	printf("inbound\n");
-
-	if(!client_request)
-	{
-		client_request = malloc(sizeof(*client_request));
-		client_request->buffer = malloc(len + 1);
-		client_request->len = len;
-		memcpy(client_request->buffer, buffer, len);
-	}
-	else
-	{
-		newlen = client_request->len + len;
-		client_request->buffer = realloc(client_request->buffer, newlen + 1);
-		memcpy(client_request->buffer + client_request->len, buffer, len);
-	}
-
-
-	if(strstr(client_request->buffer, "\r\n"))
-	{
-		printf("client> %s", client_request->buffer);
-		client_request->buffer[client_request->len] = '\0';
-
-		response = malloc(sizeof(*response));
-		response->base = client_request->buffer;
-		response->len = client_request->len;
-	
-		req = calloc(1, sizeof(*req));
-		req->data = response;
-
-		// Send to buffer from inbound handle to outbound handle
-		uv_write(req, server, response, 1, free_redis_request);
-	}*/
 }
 
 
 void parse_request(redis_request *request)
 {
-	int command;
+	int command, buffer_count, buf_i;
 	size_t len;
 	char *command_string;
-	uv_buf_t *response;
+	buffer_chain *i;
+	uv_buf_t *req_buffer;
 	uv_write_t *req;
 
 	if(request->type == INLINE_REQUEST)
@@ -346,28 +309,49 @@ void parse_request(redis_request *request)
 		if(request->command != REDIS_UNSET)
 		{
 			printf("%s type request!\n", redis_command_strings[request->command]);
+			buffer_count = 1;
+			i = request->buffer;
+			while(i->next)
+			{
+				buffer_count++;
+				i = i->next;
+			}
+
+			req_buffer = malloc(sizeof(*req_buffer) * buffer_count);
+			i = request->buffer;
+			buf_i = 0;
+			while(i)
+			{
+				req_buffer[buf_i].base = i->buffer;
+				req_buffer[buf_i].len = i->len;
+				i = i->next;
+			}
+			req = calloc(1, sizeof(*req));
+			req->data = req_buffer;
+
+			// Send to buffer from inbound handle to outbound handle
+			uv_write(req, request->server, req_buffer, buffer_count, NULL);
 		}
 		else
 		{
 			command_string = bc_getdelim(request->buffer, ' ', &len);
 			if(!command_string)
 				command_string = bc_getdelim(request->buffer, '\r', &len);
-			command_string[len - 1] = '\0';
-			len -= 1;
+			command_string[--len] = '\0';
 
-			response = malloc(sizeof(*response) * 3);
-			response[0].base = "-ERR unknown command '";
-			response[0].len = 22;
-			response[1].base = command_string;
-			response[1].len = len;
-			response[2].base = "'\r\n";
-			response[2].len = 3;
+			req_buffer = malloc(sizeof(*req_buffer) * 3);
+			req_buffer[0].base = "-ERR unknown command '";
+			req_buffer[0].len = 22;
+			req_buffer[1].base = command_string;
+			req_buffer[1].len = len;
+			req_buffer[2].base = "'\r\n";
+			req_buffer[2].len = 3;
 
 			req = calloc(1, sizeof(*req));
-			req->data = response;
+			req->data = req_buffer;
 
 			// Send to buffer from inbound handle to outbound handle
-			uv_write(req, request->client, response, 3, NULL);
+			uv_write(req, request->client, req_buffer, 3, NULL);
 		}
 	}
 	else

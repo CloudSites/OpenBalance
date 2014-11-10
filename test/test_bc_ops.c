@@ -13,6 +13,9 @@ TEST_SUITE("bufferchain operations")
 	buffer_chain search_chain1 = {"abcdefgh\n", 9, 0, NULL, STATIC};
 	buffer_chain search_chain2_link2 = {"ghijk\n", 6, 0, NULL, STATIC};
 	buffer_chain search_chain2 = {"xxxabcdef", 9, 3, &search_chain2_link2, STATIC};
+	buffer_chain search_chain3_link3 = {"ghijkl\n", 7, 0, NULL, STATIC};
+	buffer_chain search_chain3_link2 = {"f", 1, 0, &search_chain3_link3, STATIC};
+	buffer_chain search_chain3 = {"xxxabcde", 8, 3, &search_chain3_link2, STATIC};
 
 	TEST_CASE("bc_strncmp checks")
 
@@ -112,7 +115,7 @@ TEST_SUITE("bufferchain operations")
 
 	TEST_CASE_END
 
-	TEST_CASE("bc_getdelim")
+	TEST_CASE("bc_getdelim checks")
 
 		size_t len;
 		char *getstring;
@@ -138,8 +141,7 @@ TEST_SUITE("bufferchain operations")
 		getstring = bc_getdelim(&search_chain2, '\n', &len);
 		assert_int_equality("chain2 full match matches",
 		                    strncmp("abcdefghijk\n", getstring, 12), 0);
-		assert_size_equality("length for second match is 12",
-		                     len, (size_t)12);
+		assert_size_equality("length for second match is 12", len, (size_t)12);
 		free(getstring);
 
 		getstring = bc_getdelim(&search_chain2, 'f', &len);
@@ -148,6 +150,49 @@ TEST_SUITE("bufferchain operations")
 		assert_size_equality("length for mid chain2 match is 8",
 		                     len, (size_t)6);
 		free(getstring);
+
+	TEST_CASE_END
+
+	TEST_CASE("bc_memstr checks")
+
+		buffer_chain *mem_match;
+		mem_match = bc_memstr(&search_chain3, "test");
+		assert_ptr_equality("null returned for no match", mem_match, NULL);
+
+		mem_match = bc_memstr(&search_chain3, "e");
+		assert_ptr_equality("single char match in first buffer",
+		                    mem_match->buffer, search_chain3.buffer);
+		assert_size_equality("offset for this match is 7", mem_match->offset,
+		                     (size_t)7);
+		free(mem_match);
+
+		mem_match = bc_memstr(&search_chain3, "ab");
+		assert_ptr_equality("multi char match in first buffer",
+		                    mem_match->buffer, search_chain3.buffer);
+		assert_size_equality("offset for this match is 3", mem_match->offset,
+		                     (size_t)3);
+		free(mem_match);
+
+		mem_match = bc_memstr(&search_chain3, "def");
+		assert_ptr_equality("multi char match in across 2 links",
+		                    mem_match->buffer, search_chain3.buffer);
+		assert_size_equality("offset for this match is 6", mem_match->offset,
+		                     (size_t)6);
+		free(mem_match);
+
+		mem_match = bc_memstr(&search_chain3, "defg");
+		assert_ptr_equality("multi char match in across 3 links",
+		                    mem_match->buffer, search_chain3.buffer);
+		assert_size_equality("offset for this match is 6", mem_match->offset,
+		                     (size_t)6);
+		free(mem_match);
+
+		mem_match = bc_memstr(&search_chain3, "fg");
+		assert_ptr_equality("multi char match in across 3 links",
+		                    mem_match->buffer, search_chain3_link2.buffer);
+		assert_size_equality("offset for this match is 0", mem_match->offset,
+		                     (size_t)0);
+		free(mem_match);
 
 	TEST_CASE_END
 

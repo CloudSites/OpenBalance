@@ -133,6 +133,53 @@ buffer_chain* bc_memchr(buffer_chain *haystack, char needle)
 }
 
 
+buffer_chain* bc_memstr(buffer_chain *haystack, char *needle)
+{
+	size_t cur_offset, cur_needle = 0;
+	int last_needle = strlen(needle) - 1;
+	buffer_chain *ret_val, *tmp;
+
+	ret_val = bc_memchr(haystack, needle[cur_needle]);
+	if(ret_val)
+	{
+		cur_offset = ret_val->offset;
+	}
+
+	tmp = ret_val;
+	while(tmp)
+	{
+		if(cur_needle == last_needle)
+		{
+			return ret_val;
+		}
+		else if(cur_offset == tmp->len - 1)
+		{
+			if(!tmp->next)
+				return NULL;
+			else
+			{
+				tmp = tmp->next;
+				cur_offset = tmp->offset;
+			}
+		}
+		else if(tmp->buffer[cur_offset] != needle[cur_needle])
+		{
+			cur_needle = 0;
+			free(ret_val);
+			ret_val = bc_memchr(tmp, needle[cur_needle]);
+			tmp = ret_val;
+		}
+		else
+		{
+			cur_offset++;
+		}
+		cur_needle++;
+	}
+
+	return NULL;
+}
+
+
 void* bc_memcpy(void *dest, buffer_chain *src, size_t len)
 {
 	buffer_chain *cur_link = src;
