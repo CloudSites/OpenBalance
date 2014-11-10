@@ -16,6 +16,8 @@ TEST_SUITE("bufferchain operations")
 	buffer_chain search_chain3_link3 = {"ghijkl\n", 7, 0, NULL, STATIC};
 	buffer_chain search_chain3_link2 = {"f", 1, 0, &search_chain3_link3, STATIC};
 	buffer_chain search_chain3 = {"xxxabcde", 8, 3, &search_chain3_link2, STATIC};
+	buffer_chain search_chain4_link2 = {"efghi", 5, 0, NULL, STATIC};
+	buffer_chain search_chain4 = {"Xabcd", 6, 1, &search_chain4_link2, STATIC};
 
 	TEST_CASE("bc_strncmp checks")
 
@@ -192,6 +194,17 @@ TEST_SUITE("bufferchain operations")
 		                    mem_match->buffer, search_chain3_link2.buffer);
 		assert_size_equality("offset for this match is 0", mem_match->offset,
 		                     (size_t)0);
+		free(mem_match);
+
+	TEST_CASE_END
+
+	TEST_CASE("bc_memmem checks")
+
+		mem_match = bc_memmem(&search_chain4, "d\x00e", 3);
+		assert_ptr_equality("multi char match in across 2 links with null",
+		                    mem_match->buffer, search_chain4.buffer);
+		assert_size_equality("offset for this match is 4", mem_match->offset,
+		                     (size_t)4);
 		free(mem_match);
 
 	TEST_CASE_END

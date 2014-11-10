@@ -135,8 +135,14 @@ buffer_chain* bc_memchr(buffer_chain *haystack, char needle)
 
 buffer_chain* bc_memstr(buffer_chain *haystack, char *needle)
 {
+	return bc_memmem(haystack, needle, strlen(needle));
+}
+
+
+buffer_chain* bc_memmem(buffer_chain *haystack, char *needle, size_t len)
+{
 	size_t cur_offset, cur_needle = 0;
-	int last_needle = strlen(needle) - 1;
+	int last_needle = len - 1;
 	buffer_chain *ret_val, *tmp;
 
 	ret_val = bc_memchr(haystack, needle[cur_needle]);
