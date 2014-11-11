@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
+<svg width="69cm" height="42cm" viewBox="19 16 1362 825" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <g>
+    <rect style="fill: #ffffff" x="20" y="80" width="160" height="80"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="20" y="80" width="160" height="80"/>
+    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="100" y="115.9">
+      <tspan x="100" y="115.9">Read from </tspan>
+      <tspan x="100" y="131.9">socket</tspan>
+    </text>
+  </g>
+  <g>
+    <polygon style="fill: #ffffff" points="370,17.2569 480,118.628 370,220 260,118.628 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="370,17.2569 480,118.628 370,220 260,118.628 "/>
+    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="370" y="114.528">
+      <tspan x="370" y="114.528">Is this a continuation</tspan>
+      <tspan x="370" y="130.528">of a previous read?</tspan>
+    </text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="180.98" y1="119.589" x2="249.917" y2="119.238"/>
+    <polygon style="fill: #000000" points="257.417,119.2 247.443,124.251 249.917,119.238 247.392,114.251 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="257.417,119.2 247.443,124.251 249.917,119.238 247.392,114.251 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="260" y="300" width="220" height="100"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="260" y="300" width="220" height="100"/>
+    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="370" y="337.9">
+      <tspan x="370" y="337.9">Use first byte of read</tspan>
+      <tspan x="370" y="353.9">to determine protocol</tspan>
+      <tspan x="370" y="369.9">format</tspan>
+    </text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="370" y1="221" x2="370" y2="289.284"/>
+    <polygon style="fill: #000000" points="370,296.784 365,286.784 370,289.284 375,286.784 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="370,296.784 365,286.784 370,289.284 375,286.784 "/>
+  </g>
+  <g>
+    <polygon style="fill: #ffffff" points="660,260 760,350 660,440 560,350 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="660,260 760,350 660,440 560,350 "/>
+    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="660" y="345.9">
+      <tspan x="660" y="345.9">Is the request in</tspan>
+      <tspan x="660" y="361.9">serialized format?</tspan>
+    </text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="479.883" y1="350" x2="549.264" y2="350"/>
+    <polygon style="fill: #000000" points="556.764,350 546.764,355 549.264,350 546.764,345 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="556.764,350 546.764,355 549.264,350 546.764,345 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="761" y1="350" x2="849.264" y2="350"/>
+    <polygon style="fill: #000000" points="856.764,350 846.764,355 849.264,350 846.764,345 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="856.764,350 846.764,355 849.264,350 846.764,345 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="660" y1="441" x2="660" y2="509.264"/>
+    <polygon style="fill: #000000" points="660,516.764 655,506.764 660,509.264 665,506.764 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="660,516.764 655,506.764 660,509.264 665,506.764 "/>
+  </g>
+  <g>
+    <polygon style="fill: #ffffff" points="960,260 1060,350 960,440 860,350 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="960,260 1060,350 960,440 860,350 "/>
+    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="960" y="345.9">
+      <tspan x="960" y="345.9">Is the serialized</tspan>
+      <tspan x="960" y="361.9">request complete?</tspan>
+    </text>
+  </g>
+  <g>
+    <polygon style="fill: #ffffff" points="660,520 760,620 660,720 560,620 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="660,520 760,620 660,720 560,620 "/>
+    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="660" y="615.9">
+      <tspan x="660" y="615.9">Is the inline</tspan>
+      <tspan x="660" y="631.9">request complete?</tspan>
+    </text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="580" y="760" width="161.35" height="80"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="580" y="760" width="161.35" height="80"/>
+    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="660.675" y="787.9">
+      <tspan x="660.675" y="787.9">Store request</tspan>
+      <tspan x="660.675" y="803.9">buffer until more</tspan>
+      <tspan x="660.675" y="819.9">data is received</tspan>
+    </text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="660.377" y1="720.591" x2="660.485" y2="749.285"/>
+    <polygon style="fill: #000000" points="660.513,756.785 655.475,746.804 660.485,749.285 665.475,746.766 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="660.513,756.785 655.475,746.804 660.485,749.285 665.475,746.766 "/>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="960,441 960,800 752.084,800 "/>
+    <polygon style="fill: #000000" points="744.584,800 754.584,795 752.084,800 754.584,805 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="744.584,800 754.584,795 752.084,800 754.584,805 "/>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="579.007,800 100,800 100,170.659 "/>
+    <polygon style="fill: #000000" points="100,163.159 105,173.159 100,170.659 95,173.159 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="100,163.159 105,173.159 100,170.659 95,173.159 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1220" y="300" width="160" height="100"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1220" y="300" width="160" height="100"/>
+    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1300" y="337.9">
+      <tspan x="1300" y="337.9">Pass request</tspan>
+      <tspan x="1300" y="353.9">buffers to</tspan>
+      <tspan x="1300" y="369.9">parsing stage</tspan>
+    </text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="1061" y1="350" x2="1209.91" y2="350"/>
+    <polygon style="fill: #000000" points="1217.41,350 1207.41,355 1209.91,350 1207.41,345 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="1217.41,350 1207.41,355 1209.91,350 1207.41,345 "/>
+  </g>
+  <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="760" y1="620" x2="940" y2="620"/>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="980,620 1300,620 1300,410.732 "/>
+    <polygon style="fill: #000000" points="1300,403.232 1305,413.232 1300,410.732 1295,413.232 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="1300,403.232 1305,413.232 1300,410.732 1295,413.232 "/>
+  </g>
+  <path style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" d="M 940,620 A 20,20 0 1 0 980,620"/>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="480.485,119.151 660,120 660,249.264 "/>
+    <polygon style="fill: #000000" points="660,256.764 655,246.764 660,249.264 665,246.764 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="660,256.764 655,246.764 660,249.264 665,246.764 "/>
+  </g>
+</svg>
