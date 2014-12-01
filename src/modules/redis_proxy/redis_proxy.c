@@ -31,8 +31,9 @@ handler_response redis_proxy_configure(json_t* config, void **conf_struct)
 	if(!module_config->listen_addr)
 		return MOD_ERROR;
 
+	// TODO support address format for upstream similar to listen format
 	module_config->upstream_host = get_config_string(config, "upstream_host",
-	                                               "127.0.0.1", 256);
+	                                                 "127.0.0.1", 256);
 	if(!module_config->upstream_host)
 		return MOD_ERROR;
 
@@ -135,6 +136,164 @@ void free_redis_request(uv_write_t *req, int status)
 
 
 void read_request(uv_stream_t *client, uv_stream_t *server, char *buffer,
+                  ssize_t len)
+{
+	proxy_client *pxy_client = client->data;
+	redis_request *client_request = pxy_client->data;
+	buffer_chain *request_buffer, *crlf_offset, *tmp, cur_buffer;
+	size_t buffer_length;
+	char *line;
+	//buffer_chain *last_buffer;
+
+	// Start tracking fresh inbound request
+	if(!client_request)
+	{
+		/*// Allocate new redis_request structure for this request
+		client_request = malloc(sizeof(*client_request));
+		client_request->links_in_buffer_chain = 1;
+		client_request->command = REDIS_UNSET;
+		client_request->client = client;
+		client_request->server = server;
+
+		// Store reference to request struct in client data
+		pxy_client->data = client_request;*/
+
+		// Create first link for this buffer in inbound request chain
+		request_buffer = malloc(sizeof(*request_buffer));
+		request_buffer->offset = 0;
+		request_buffer->buffer = buffer;
+		request_buffer->len = len;
+		request_buffer->next = NULL;
+		request_buffer->free_type = POOLED;
+
+		// Look for \r\n in buffer, no request can be complete without it
+		crlf_offset = bc_memstr(request_buffer, "\r\n");
+		if(crlf_offset)
+		{
+			// See if this is a single line request
+			if(bc_strlen(crlf_offset) == 2)
+			{
+				// If so it is either a inline request or incomplete serialized
+				//  request
+				client_request = malloc(sizeof(*client_request));
+				client_request->links_in_buffer_chain = 1;
+				client_request->command = REDIS_UNSET;
+				client_request->client = client;
+				client_request->server = server;
+				client_request->buffer = request_buffer;
+
+				// Check if buffer is start of a serialized request
+				if(request_buffer->buffer[0] == '*')
+				{
+					// Incomplete serialized command
+					printf("incomplete serialized\n");
+					client_request->type = SERIALIZED_REQUEST;
+					return;
+				}
+				else
+				{
+					printf("inline\n");
+					// Complete inline command with no pipelining
+					client_request->type = INLINE_REQUEST;
+					parse_request(client_request);
+					return;
+				}
+			}
+			else
+			{
+				// Set cur_buffer
+				memcpy(&cur_buffer, request_buffer, sizeof(cur_buffer));
+
+				while(crlf_offset)
+				{
+					printf("line ending\n");
+
+					line = bc_getline(&cur_buffer, &buffer_length);
+					printf("%s", line);
+
+					// See if serialized or inline request
+					if(line[0] == '*' || client_request)
+					{
+						printf("serialized\n");
+						if(!client_request)
+						{
+							printf("serialized start\n");
+							client_request = malloc(sizeof(*client_request));
+							client_request->links_in_buffer_chain = 1;
+							client_request->command = REDIS_UNSET;
+							client_request->client = client;
+							client_request->server = server;
+							client_request->type = SERIALIZED_REQUEST;
+							client_request->arg_count = atoi(&line[1]);
+							if(client_request->arg_count < 1)
+							{
+								
+							}
+							client_request->cur_arg = 0;
+							client_request->arg_sizes = malloc(sizeof(int) * client_request->arg_count);
+							client_request->read_state = READ_ARG_SIZE;
+						}
+						else
+						{
+							if(client_request->read_state == READ_ARG_SIZE)
+							{
+								if(line[0] != '$')
+								{
+									//protocol error
+									printf("protocol error: %c\n", line[0]);
+								}
+								else
+								{
+									printf("more else\n");
+								}
+							}
+							else
+							{
+								printf("this else\n");
+							}
+						}
+					}
+					else
+					{
+						//inline
+						printf("inline\n");
+						// Setup request structure for this request
+						client_request = malloc(sizeof(*client_request));
+						client_request->links_in_buffer_chain = 1;
+						client_request->command = REDIS_UNSET;
+						client_request->client = client;
+						client_request->server = server;
+						client_request->type = INLINE_REQUEST;
+
+						// Setup buffer for this request
+						client_request->buffer = malloc(sizeof(*client_request->buffer));
+						client_request->buffer->buffer = line;
+						client_request->buffer->len = buffer_length;
+						client_request->buffer->next = NULL;
+						client_request->buffer->free_type = UNPOOLED;
+
+						parse_request(client_request);
+						client_request = NULL;
+					}
+
+					crlf_offset->offset += 2;
+					cur_buffer.offset = crlf_offset->offset;
+					tmp = bc_memstr(crlf_offset, "\r\n");
+					free(crlf_offset);
+					crlf_offset = tmp;
+				}
+				
+			}
+		}
+	}
+	else
+	{
+		printf("continuation\n");
+	}
+}
+
+
+/*void read_request(uv_stream_t *client, uv_stream_t *server, char *buffer,
                   ssize_t len)
 {
 	proxy_client *pxy_client = client->data;
@@ -282,7 +441,7 @@ void read_request(uv_stream_t *client, uv_stream_t *server, char *buffer,
 			printf("no support for cereal :(\n");
 		}
 	}
-}
+}*/
 
 
 void parse_request(redis_request *request)

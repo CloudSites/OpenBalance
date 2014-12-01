@@ -32,6 +32,12 @@ typedef enum
 	REDIS_COMMAND_LEN
 } redis_command;
 
+typedef enum
+{
+	READ_ARG_SIZE = 0,
+	READ_ARG
+} redis_read_state;
+
 struct redis_proxy_config
 {
 	char *listen_addr;
@@ -50,6 +56,10 @@ struct redis_request
 	int links_in_buffer_chain;
 	uv_stream_t *client;
 	uv_stream_t *server;
+	int arg_count;
+	int *arg_sizes;
+	int cur_arg;
+	redis_read_state read_state;
 };
 
 
