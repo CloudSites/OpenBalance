@@ -51,15 +51,16 @@ struct redis_proxy_config
 struct redis_request
 {
 	redis_request_type type;
-	redis_command command;
 	buffer_chain *buffer;
-	int links_in_buffer_chain;
 	uv_stream_t *client;
 	uv_stream_t *server;
+	redis_command command;
+	int arg_count;
+	redis_read_state read_state;
+/*	int links_in_buffer_chain;
 	int arg_count;
 	int *arg_sizes;
-	int cur_arg;
-	redis_read_state read_state;
+	int cur_arg;*/
 };
 
 

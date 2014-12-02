@@ -143,9 +143,10 @@ buffer_chain* bc_memmem(buffer_chain *haystack, char *needle, size_t len)
 {
 	size_t cur_offset, cur_needle = 0;
 	int last_needle = len - 1;
-	buffer_chain *ret_val, *tmp;
+	buffer_chain *ret_val, *tmp, scratch;
 
 	ret_val = bc_memchr(haystack, needle[cur_needle]);
+	// If first needle found
 	if(ret_val)
 	{
 		cur_offset = ret_val->offset;
@@ -154,32 +155,48 @@ buffer_chain* bc_memmem(buffer_chain *haystack, char *needle, size_t len)
 	tmp = ret_val;
 	while(tmp)
 	{
-		if(cur_needle == last_needle)
-		{
-			return ret_val;
-		}
-		else if(cur_offset == tmp->len - 1)
-		{
-			if(!tmp->next)
-				return NULL;
-			else
-			{
-				tmp = tmp->next;
-				cur_offset = tmp->offset;
-			}
-		}
-		else if(tmp->buffer[cur_offset] != needle[cur_needle])
+		// If character mismatch, reset current needle and continue checking
+		if(tmp->buffer[cur_offset] != needle[cur_needle])
 		{
 			cur_needle = 0;
+			memcpy(&scratch, ret_val, sizeof(*ret_val));
+			scratch.offset++;
 			free(ret_val);
-			ret_val = bc_memchr(tmp, needle[cur_needle]);
+			ret_val = bc_memchr(&scratch, needle[cur_needle]);
 			tmp = ret_val;
 		}
 		else
 		{
-			cur_offset++;
+			// Detect match completion or increment needle
+			if(cur_needle == last_needle)
+			{
+				return ret_val;
+			}
+			else
+			{
+				cur_needle++;
+			}
+
+			// Detect end of current chain
+			if(cur_offset == tmp->len - 1)
+			{
+				// If end of haystack
+				if(!tmp->next)
+				{
+					return NULL;
+				}
+				else
+				{
+					// Use next chain
+					tmp = tmp->next;
+					cur_offset = tmp->offset;
+				}
+			}
+			else
+			{
+				cur_offset++;
+			}
 		}
-		cur_needle++;
 	}
 
 	return NULL;
@@ -227,6 +244,37 @@ char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len)
 	char *ret_val;
 
 	delimiter = bc_memchr(buffer, delim);
+	if(!delimiter)
+	{
+		*len = 0;
+		return NULL;
+	}
+
+	i = buffer;
+	while(i->buffer != delimiter->buffer)
+	{
+		length += i->len;
+		i = i->next;
+	}
+
+	length += delimiter->len - (delimiter->len - delimiter->offset) + 1;
+
+	ret_val = malloc(length);
+	bc_memcpy(ret_val, buffer, length);
+	*len = length;
+	free(delimiter);
+
+	return ret_val;
+}
+
+
+char* bc_getstrdelim(buffer_chain *buffer, char *delim, size_t *len)
+{
+	buffer_chain *delimiter, *i;
+	size_t length = buffer->offset * -1;
+	char *ret_val;
+
+	delimiter = bc_memstr(buffer, delim);
 	if(!delimiter)
 	{
 		*len = 0;

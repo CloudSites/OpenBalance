@@ -34,6 +34,7 @@ buffer_chain* bc_memstr(buffer_chain *haystack, char *needle);
 buffer_chain* bc_memmem(buffer_chain *haystack, char *needle, size_t len);
 void* bc_memcpy(void *dest, buffer_chain *src, size_t len);
 char* bc_getdelim(buffer_chain *buffer, char delim, size_t *len);
+char* bc_getstrdelim(buffer_chain *buffer, char *delim, size_t *len);
 char* bc_getline(buffer_chain *buffer, size_t *len);
 size_t bc_strlen(buffer_chain *buffer);
 

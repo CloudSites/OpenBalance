@@ -18,6 +18,8 @@ TEST_SUITE("bufferchain operations")
 	buffer_chain search_chain3 = {"xxxabcde", 8, 3, &search_chain3_link2, STATIC};
 	buffer_chain search_chain4_link2 = {"efghi", 5, 0, NULL, STATIC};
 	buffer_chain search_chain4 = {"Xabcd", 6, 1, &search_chain4_link2, STATIC};
+	buffer_chain search_chain5 = {"abcde\rasbga\nasfjbj", 18, 0, NULL, STATIC};
+	buffer_chain *mem_match;
 
 	TEST_CASE("bc_strncmp checks")
 
@@ -148,7 +150,7 @@ TEST_SUITE("bufferchain operations")
 
 		getstring = bc_getdelim(&search_chain2, 'f', &len);
 		assert_int_equality("chain2 matches mid delim",
-		                    strcmp("abcdef", getstring), 0);
+		                    strncmp("abcdef", getstring, 6), 0);
 		assert_size_equality("length for mid chain2 match is 8",
 		                     len, (size_t)6);
 		free(getstring);
@@ -157,9 +159,11 @@ TEST_SUITE("bufferchain operations")
 
 	TEST_CASE("bc_memstr checks")
 
-		buffer_chain *mem_match;
 		mem_match = bc_memstr(&search_chain3, "test");
 		assert_ptr_equality("null returned for no match", mem_match, NULL);
+
+		mem_match = bc_memstr(&search_chain5, "ad");
+		assert_ptr_equality("null returned for no match 2", mem_match, NULL);
 
 		mem_match = bc_memstr(&search_chain3, "e");
 		assert_ptr_equality("single char match in first buffer",
@@ -200,7 +204,7 @@ TEST_SUITE("bufferchain operations")
 
 	TEST_CASE("bc_memmem checks")
 
-		mem_match = bc_memmem(&search_chain4, "d\x00e", 3);
+		mem_match = bc_memmem(&search_chain4, "d\x00" "e", 3);
 		assert_ptr_equality("multi char match in across 2 links with null",
 		                    mem_match->buffer, search_chain4.buffer);
 		assert_size_equality("offset for this match is 4", mem_match->offset,
@@ -223,5 +227,13 @@ TEST_SUITE("bufferchain operations")
 		                     (size_t)4);
 
 	TEST_CASE_END
+
+	TEST_CASE("bc_getstrdelim checks")
+
+		getstring = bc_getstrdelim(&search_chain5, "\r\n", &length);
+		assert_ptr_equality("non-match returns null", getstring, NULL);
+
+	TEST_CASE_END
+
 
 TEST_SUITE_END
